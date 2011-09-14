@@ -449,6 +449,9 @@ class FileServiceImpl implements FileService {
       case EXCLUSIVE_LOCK_FAILED:
         return new LockException(message, ex);
       case EXISTENCE_ERROR:
+      case EXISTENCE_ERROR_METADATA_NOT_FOUND:
+      case EXISTENCE_ERROR_METADATA_FOUND:
+      case EXISTENCE_ERROR_SHARDING_MISMATCH:
         return new FileNotFoundException();
       case FINALIZATION_ERROR:
         return new FinalizationException(message, ex);

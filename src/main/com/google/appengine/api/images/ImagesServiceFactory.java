@@ -56,7 +56,46 @@ public final class ImagesServiceFactory {
    * {@code width} and {@code height} are 0.
    */
   public static Transform makeResize(int width, int height) {
-    return new Resize(width, height);
+    return new Resize(width, height, false, 0.0f, 0.0f);
+  }
+
+  /**
+   * Creates a transform that will resize an image to exactly fit a box with
+   * width {@code width} and height {@code height} by resizing to the less
+   * constraining dimension and cropping the other. The center of the crop
+   * region is controlled by {@code cropOffsetX} and {@code cropOffsetY}.
+   * @param width width of the bounding box
+   * @param height height of the bounding box
+   * @param cropOffsetX the relative horizontal position of the center
+   * @param cropOffsetY the relative vertical position of the center
+   * @return a resize transform
+   * @throws IllegalArgumentException If {@code width} or {@code height} are
+   * negative or greater than {@code MAX_RESIZE_DIMENSIONS}, if either of
+   * {@code width} and {@code height} are 0 or if {@code cropOffsetX} or
+   * {@code cropOffsetY} are outside the range 0.0 to 1.0.
+   */
+  public static Transform makeResize(int width, int height, float cropOffsetX, float cropOffsetY) {
+    return new Resize(width, height, true, cropOffsetX, cropOffsetY);
+  }
+
+  /**
+   * Creates a transform that will resize an image to exactly fit a box with
+   * width {@code width} and height {@code height} by resizing to the less
+   * constraining dimension and cropping the other. The center of the crop
+   * region is controlled by {@code cropOffsetX} and {@code cropOffsetY}.
+   * @param width width of the bounding box
+   * @param height height of the bounding box
+   * @param cropOffsetX the relative horizontal position of the center
+   * @param cropOffsetY the relative vertical position of the center
+   * @return a resize transform
+   * @throws IllegalArgumentException If {@code width} or {@code height} are
+   * negative or greater than {@code MAX_RESIZE_DIMENSIONS}, if either of
+   * {@code width} and {@code height} are 0 or if {@code cropOffsetX} or
+   * {@code cropOffsetY} are outside the range 0.0 to 1.0.
+   */
+  public static Transform makeResize(int width, int height, double cropOffsetX,
+                                     double cropOffsetY) {
+    return new Resize(width, height, true, (float) cropOffsetX, (float) cropOffsetY);
   }
 
   /**

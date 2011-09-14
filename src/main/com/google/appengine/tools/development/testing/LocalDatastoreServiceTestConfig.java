@@ -237,6 +237,7 @@ public final class LocalDatastoreServiceTestConfig implements LocalServiceTestCo
   public void tearDown() {
     LocalDatastoreService datastoreService = getLocalDatastoreService();
     datastoreService.clearProfiles();
+    datastoreService.clearQueryHistory();
   }
 
   public static LocalDatastoreService getLocalDatastoreService() {

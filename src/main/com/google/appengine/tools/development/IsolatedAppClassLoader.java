@@ -2,18 +2,20 @@
 
 package com.google.appengine.tools.development;
 
-import com.google.appengine.tools.info.SdkInfo;
 import com.google.appengine.tools.info.SdkImplInfo;
+import com.google.appengine.tools.info.SdkInfo;
 import com.google.apphosting.utils.io.IoUtil;
+
+import sun.security.util.SecurityConstants;
 
 import java.io.File;
 import java.io.FilePermission;
 import java.io.IOException;
 import java.lang.reflect.ReflectPermission;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.URLConnection;
-import java.net.MalformedURLException;
 import java.security.AccessController;
 import java.security.AllPermission;
 import java.security.CodeSource;
@@ -30,11 +32,9 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.PropertyPermission;
 import java.util.Set;
-import java.util.logging.LoggingPermission;
-import java.util.logging.Logger;
 import java.util.logging.Level;
-
-import sun.security.util.SecurityConstants;
+import java.util.logging.Logger;
+import java.util.logging.LoggingPermission;
 
 /**
  * A webapp {@code ClassLoader}. This {@code ClassLoader} isolates
@@ -91,7 +91,7 @@ class IsolatedAppClassLoader extends URLClassLoader {
       logger.log(Level.FINE, "Unable to compare the working directory and app root.", e);
     }
 
-    if (!canonicalWorkingDir.equals(canonicalAppRoot)) {
+    if (canonicalWorkingDir != null && !canonicalWorkingDir.equals(canonicalAppRoot)) {
       String newLine = System.getProperty("line.separator");
       String workDir = workingDir.getAbsolutePath();
       String appDir = appRoot.getAbsolutePath();
@@ -325,7 +325,7 @@ class IsolatedAppClassLoader extends URLClassLoader {
   }
 
   private static Permission getReadPermission(URL url) {
-    Permission p = null;
+    Permission p;
     try {
       URLConnection urlConnection = url.openConnection();
       p = urlConnection.getPermission();

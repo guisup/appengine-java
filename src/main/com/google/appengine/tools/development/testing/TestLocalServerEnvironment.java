@@ -30,6 +30,11 @@ class TestLocalServerEnvironment implements LocalServerEnvironment {
   }
 
   @Override
+  public String getHostName() {
+    return "localhost";
+  }
+
+  @Override
   public int getPort() {
     return 8080;
   }

@@ -310,6 +310,7 @@ public class AppCfg {
         + "  update_queues: Update application task queue definitions.\n"
         + "  update_dos: Update application DoS protection configuration.\n"
         + "  version: Prints version information.\n"
+        + "  set_default_version: Set the default serving version.\n"
         + "  cron_info: Displays times for the next several runs of each cron job.\n"
         + "  vacuum_indexes: Delete unused indexes from application.\n"
         + "  backends list: List the currently configured backends.\n"
@@ -534,6 +535,7 @@ public class AppCfg {
       new HelpAction(),
       new DownloadAppAction(),
       new VersionAction(),
+      new SetDefaultVersionAction(),
       new BackendsListAction(),
       new BackendsRollbackAction(),
       new BackendsUpdateAction(),
@@ -903,6 +905,22 @@ public class AppCfg {
     public String getHelpString() {
       return "AppCfg version\n\n" +
           "Prints version information.\n";
+    }
+  }
+
+  class SetDefaultVersionAction extends AppCfgAction {
+    SetDefaultVersionAction() {
+      super("set_default_version");
+    }
+    @Override
+    public void execute() {
+      admin.setDefaultVersion();
+    }
+    @Override
+    public String getHelpString() {
+      return "AppCfg [options] set_default_version <app-dir>\n\n" +
+          "Sets the default (serving) version.\n\n" +
+          "Options:\n" + GENERAL_OPTION_HELP;
     }
   }
 

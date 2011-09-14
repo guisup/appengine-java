@@ -78,6 +78,12 @@ public interface ContainerService {
   int getPort();
 
   /**
+   * Returns the host name of the server, however it's decided during the
+   * the servlet container deployment.
+   */
+  String getHostName();
+
+  /**
    * Returns the context representing the currently executing webapp.
    */
   AppContext getAppContext();

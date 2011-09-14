@@ -65,10 +65,10 @@ public final class IMHandle implements Serializable, Comparable<IMHandle> {
     if (datastoreString == null) {
       throw new NullPointerException("datastoreString must not be null");
     }
-    String[] split = datastoreString.split(" ");
+    String[] split = datastoreString.split(" ", 2);
     if (split.length != 2) {
       throw new IllegalArgumentException(
-          "Datastore string must have exactly one space: " + datastoreString);
+          "Datastore string must have at least one space: " + datastoreString);
     }
     try {
       return new IMHandle(IMHandle.Scheme.valueOf(split[0]), split[1]);

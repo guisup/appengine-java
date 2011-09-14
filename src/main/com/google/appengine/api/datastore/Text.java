@@ -50,7 +50,7 @@ public final class Text implements Serializable {
   }
 
   /**
-   * Return the value of this {@code Text}.
+   * Return the value of this {@code Text}.  Can be {@code null}.
    */
   public String getValue() {
     return value;
@@ -58,6 +58,9 @@ public final class Text implements Serializable {
 
   @Override
   public int hashCode() {
+    if (value == null) {
+      return -1;
+    }
     return value.hashCode();
   }
 
@@ -69,6 +72,9 @@ public final class Text implements Serializable {
   public boolean equals(Object object) {
     if (object instanceof Text) {
       Text key = (Text) object;
+      if (value == null) {
+        return key.value == null;
+      }
       return value.equals(key.value);
     }
     return false;
@@ -79,6 +85,9 @@ public final class Text implements Serializable {
    */
   @Override
   public String toString() {
+    if (value == null) {
+      return "<Text: null>";
+    }
     String text = value;
     if (text.length() > 70) {
       text = text.substring(0, 70) + "...";

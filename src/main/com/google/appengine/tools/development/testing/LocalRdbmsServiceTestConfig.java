@@ -95,20 +95,6 @@ public class LocalRdbmsServiceTestConfig implements LocalServiceTestConfig {
     return this;
   }
 
-  /**
-   * Sets the server type to either {@code hosted} or {@code local}.
-   *
-   * <p><ul>
-   * <li>{@code local} connections proxy the SQL Service wire format to a local
-   * database using JDBC.
-   * <li>{@code remote} connections talk over a {@code SpeckleRpc} to a hosted
-   * development mode Speckle instance.
-   * </ul>
-   *
-   * @param serverType hosted or local
-   * @return {@code this} (for chaining)
-   * @throws IllegalArgumentException if serverType is not "hosted" or "local"
-   */
   public LocalRdbmsServiceTestConfig setServerType(LocalRdbmsService.ServerType serverType) {
     if (serverType == null) {
       throw new NullPointerException("serverType can not be null");
@@ -129,12 +115,6 @@ public class LocalRdbmsServiceTestConfig implements LocalServiceTestConfig {
     return this;
   }
 
-  /**
-   * Sets the remote client factory class.
-   *
-   * @param remoteClientFactory the SpeckleClientFactory implementation.
-   * @return {@code this} (for chaining)
-   */
   public LocalRdbmsServiceTestConfig setRemoteClientFactory(
       Class<? extends SqlClientFactory> remoteClientFactory) {
     this.remoteClientFactory = remoteClientFactory;

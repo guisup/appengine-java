@@ -213,7 +213,11 @@ public class LocalServiceTestHelper {
 
   /**
    * Sets the time zone in which tests will execute.  If not set we use the
-   * same timezone that we use in production and the dev appserver: UTC
+   * same timezone that we use in production and the dev appserver: UTC.  Note
+   * that if your code has permission to modify the <code>user.timezone</code>
+   * system property, this will change the default timezone for the JVM.
+   * However, if your code does not have this permission, the timezone will only
+   * be altered for the current thread.
    *
    * @param timeZone the time zone
    * @return {@code this} (for chaining)

@@ -164,7 +164,11 @@ public class ByteRange {
     if (endValue == null) {
       return new ByteRange(startValue);
     } else {
-      return new ByteRange((long) startValue, (long) endValue);
+      try {
+        return new ByteRange((long) startValue, (long) endValue);
+      } catch (IllegalArgumentException ex) {
+        throw new RangeFormatException("Invalid range format: " + byteRange, ex);
+      }
     }
   }
 

@@ -23,6 +23,12 @@ public class EntityTranslator {
     return entity;
   }
 
+  public static Entity createFromPbBytes(byte[] pbBytes) {
+    EntityProto proto = new EntityProto();
+    proto.mergeFrom(pbBytes);
+    return createFromPb(proto);
+  }
+
   public static EntityProto convertToPb(Entity entity) {
     Reference reference = KeyTranslator.convertToPb(entity.getKey());
 

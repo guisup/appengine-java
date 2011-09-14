@@ -2,8 +2,8 @@
 
 package com.google.appengine.tools.development;
 
-import com.google.appengine.tools.info.SdkInfo;
 import com.google.appengine.tools.info.SdkImplInfo;
+import com.google.appengine.tools.info.SdkInfo;
 
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -21,7 +21,7 @@ import java.util.List;
  */
 class DevAppServerClassLoader extends URLClassLoader {
 
-  private ClassLoader delegate;
+  private final ClassLoader delegate;
 
   private static final String DEV_APP_SERVER_INTERFACE
       = "com.google.appengine.tools.development.DevAppServer";

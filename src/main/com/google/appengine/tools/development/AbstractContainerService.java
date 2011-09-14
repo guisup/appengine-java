@@ -18,7 +18,6 @@ import com.google.common.base.Join;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
 
-import java.beans.PropertyChangeSupport;
 import java.io.BufferedInputStream;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -26,9 +25,10 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.lang.reflect.Field;
+import java.net.InetAddress;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.UnknownHostException;
 import java.security.Permissions;
 import java.util.ArrayList;
 import java.util.List;
@@ -58,6 +58,11 @@ public abstract class AbstractContainerService implements ContainerService {
    * The network address on which the server is listening for http requests.
    */
   protected String address;
+
+  /**
+   * The hostname on which the server is listening for http requests.
+   */
+  protected String hostName;
 
   /**
    * The port on which the server is listening for http requests.
@@ -117,6 +122,17 @@ public abstract class AbstractContainerService implements ContainerService {
     this.address = address;
     this.port = port;
     this.serverInitLatch = new CountDownLatch(1);
+    this.hostName = "localhost";
+    if ("0.0.0.0".equals(address)) {
+      try {
+        InetAddress localhost = InetAddress.getLocalHost();
+        this.hostName = localhost.getHostName();
+      } catch (UnknownHostException ex) {
+        log.log(Level.WARNING,
+            "Unable to determine hostname - defaulting to localhost.");
+      }
+    }
+
     return new LocalServerEnvironment() {
       public File getAppDir() {
         return appDir;
@@ -124,6 +140,10 @@ public abstract class AbstractContainerService implements ContainerService {
 
       public String getAddress() {
         return address;
+      }
+
+      public String getHostName() {
+        return hostName;
       }
 
       public int getPort() {
@@ -226,6 +246,11 @@ public abstract class AbstractContainerService implements ContainerService {
   @Override
   public int getPort() {
     return port;
+  }
+
+  @Override
+  public String getHostName() {
+    return hostName;
   }
 
   @Override
@@ -363,7 +388,6 @@ public abstract class AbstractContainerService implements ContainerService {
     try {
       allProperties.store(out, null);
       LogManager.getLogManager().readConfiguration(new ByteArrayInputStream(out.toByteArray()));
-      fireLogManagerChangeListener();
 
       Logger root = Logger.getLogger("");
       Handler[] handlers = root.getHandlers();
@@ -374,17 +398,6 @@ public abstract class AbstractContainerService implements ContainerService {
       }
     } catch (IOException e) {
       log.log(Level.WARNING, "Unable to configure logging properties.", e);
-    }
-  }
-
-  private static void fireLogManagerChangeListener() {
-    try {
-      Field field = LogManager.class.getDeclaredField("changes");
-      field.setAccessible(true);
-      PropertyChangeSupport support = (PropertyChangeSupport) field.get(LogManager.getLogManager());
-      support.firePropertyChange(null, null, null);
-    } catch (Exception ex) {
-      log.log(Level.FINE, "Failed to explicitly fire LogManager PropertyChangeSupport.", ex);
     }
   }
 

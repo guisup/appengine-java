@@ -25,6 +25,10 @@ public interface LocalServerEnvironment {
   int getPort();
 
   /**
+   * @return the host name at which the server is running.
+   */
+  String getHostName();
+  /**
    * This call will block until the server is fully initialized
    * and ready to process incoming http requests.
    */

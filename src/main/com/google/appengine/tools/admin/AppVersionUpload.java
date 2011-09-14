@@ -300,6 +300,11 @@ public class AppVersionUpload {
     }
   }
 
+  public void setDefaultVersion() throws IOException {
+    app.statusUpdate("Setting default version to " + app.getVersion() + ".");
+    send("/api/appversion/setdefault", "");
+  }
+
   protected String getIndexYaml() {
     return app.getIndexesXml().toYaml();
   }

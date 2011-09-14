@@ -31,6 +31,22 @@ public interface BlobstoreService {
   String createUploadUrl(String successPath);
 
   /**
+   * Create an absolute URL that can be used by a user to
+   * asynchronously upload a large blob.  Upon completion of the
+   * upload, a callback is made to the specified URL.
+   *
+   * @param successPath A relative URL which will be invoked
+   * after the user successfully uploads a blob. Must start with a "/".
+   * @param uploadOptions Specific options applicable only for this
+   * upload URL.
+   *
+   * @throws IllegalArgumentException If successPath was not valid.
+   * @throws BlobstoreFailureException If an error occurred while
+   * communicating with the blobstore.
+   */
+  String createUploadUrl(String successPath, UploadOptions uploadOptions);
+
+  /**
    * Arrange for the specified blob to be served as the response
    * content for the current request.  {@code response} should be
    * uncommitted before invoking this method, and should be assumed to

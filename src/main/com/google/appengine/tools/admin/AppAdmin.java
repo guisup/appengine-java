@@ -200,4 +200,12 @@ public interface AppAdmin {
     ERROR,
     CRITICAL,
   }
+
+  /**
+   * Sends a synchronous request to update the application's default version.
+   * This work completes synchronously on the server.
+   *
+   * @throws AdminException if an error occurs.
+   */
+  void setDefaultVersion();
 }

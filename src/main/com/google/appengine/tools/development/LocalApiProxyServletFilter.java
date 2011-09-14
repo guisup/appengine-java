@@ -84,6 +84,10 @@ public class LocalApiProxyServletFilter implements Filter {
         throw new UnsupportedOperationException();
       }
 
+      public String getHostName() {
+        throw new UnsupportedOperationException();
+      }
+
       public void waitForServerToStart() { }
 
       public boolean simulateProductionLatencies() {

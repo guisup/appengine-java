@@ -29,12 +29,24 @@ class BlobstoreServiceImpl implements BlobstoreService {
   static final String BLOB_RANGE_HEADER = "X-AppEngine-BlobRange";
 
   public String createUploadUrl(String successPath) {
+    return createUploadUrl(successPath, UploadOptions.Builder.withDefaults());
+  }
+
+  public String createUploadUrl(String successPath, UploadOptions uploadOptions) {
     if (successPath == null) {
       throw new NullPointerException("Success path must not be null.");
     }
 
     CreateUploadURLRequest request = new CreateUploadURLRequest();
     request.setSuccessPath(successPath);
+
+    if (uploadOptions.hasMaxUploadSizeBytesPerBlob()) {
+      request.setMaxUploadSizePerBlobBytes(uploadOptions.getMaxUploadSizeBytesPerBlob());
+    }
+
+    if (uploadOptions.hasMaxUploadSizeBytes()) {
+      request.setMaxUploadSizeBytes(uploadOptions.getMaxUploadSizeBytes());
+    }
 
     byte[] responseBytes;
     try {

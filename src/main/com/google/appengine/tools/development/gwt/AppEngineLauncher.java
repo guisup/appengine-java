@@ -11,25 +11,13 @@ import com.google.gwt.core.ext.ServletContainerLauncher;
 import com.google.gwt.core.ext.TreeLogger;
 import com.google.gwt.core.ext.UnableToCompleteException;
 
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.PrintStream;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Map;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.ErrorManager;
-import java.util.logging.Formatter;
-import java.util.logging.Handler;
-import java.util.logging.Level;
-import java.util.logging.LogManager;
-import java.util.logging.LogRecord;
-import java.util.logging.Logger;
 
 /**
- * A GWT SCL that allows DevAppServer to be embedded within GWT hosted mode.
+ * A GWT SCL that allows DevAppServer to be embedded within GWT Development Mode.
  *
  */
 public class AppEngineLauncher extends ServletContainerLauncher {
@@ -44,13 +32,10 @@ public class AppEngineLauncher extends ServletContainerLauncher {
   private static class AppEngineServletContainer extends ServletContainer {
     private final TreeLogger logger;
     private final DevAppServer server;
-    private final LogAdapterHandler logAdapter;
 
-    public AppEngineServletContainer(TreeLogger logger, DevAppServer server,
-                                     LogAdapterHandler logAdapter) {
+    public AppEngineServletContainer(TreeLogger logger, DevAppServer server) {
       this.logger = logger;
       this.server = server;
-      this.logAdapter = logAdapter;
     }
 
     @Override
@@ -60,7 +45,7 @@ public class AppEngineLauncher extends ServletContainerLauncher {
 
     @Override
     public void refresh() throws UnableToCompleteException {
-      TreeLogger branch = logger.branch(TreeLogger.INFO, "Reloading AppEngine server");
+      TreeLogger branch = logger.branch(TreeLogger.INFO, "Reloading App Engine server");
       try {
         server.restart();
       } catch (Exception e) {
@@ -72,28 +57,24 @@ public class AppEngineLauncher extends ServletContainerLauncher {
 
     @Override
     public void stop() throws UnableToCompleteException {
-      TreeLogger branch = logger.branch(TreeLogger.INFO, "Stopping AppEngine server");
+      TreeLogger branch = logger.branch(TreeLogger.INFO, "Stopping App Engine server");
       try {
         server.shutdown();
       } catch (Exception e) {
-        branch.log(TreeLogger.ERROR, "Unable to stop AppEngine server", e);
+        branch.log(TreeLogger.ERROR, "Unable to stop App Engine server", e);
         throw new UnableToCompleteException();
       }
       branch.log(TreeLogger.INFO, "Stopped successfully");
-      logAdapter.uninstall();
     }
   }
 
   @Override
   public ServletContainer start(TreeLogger logger, int port, File appRootDir)
       throws UnableToCompleteException {
-    LogAdapterHandler logAdapter = new LogAdapterHandler(logger);
-    logAdapter.install();
     Logging.initializeLogging();
-    logAdapter.adjustRootHandlers();
     checkStartParams(logger, port, appRootDir);
 
-    TreeLogger branch = logger.branch(TreeLogger.INFO, "Initializing AppEngine server");
+    TreeLogger branch = logger.branch(TreeLogger.INFO, "Initializing App Engine server");
     maybePerformUpdateCheck(branch);
 
     DevAppServer server = new DevAppServerFactory().createDevAppServer(
@@ -109,9 +90,9 @@ public class AppEngineLauncher extends ServletContainerLauncher {
 
     try {
       server.start();
-      return new AppEngineServletContainer(logger, server, logAdapter);
+      return new AppEngineServletContainer(logger, server);
     } catch (Exception e) {
-      branch.log(TreeLogger.ERROR, "Unable to start AppEngine server", e);
+      branch.log(TreeLogger.ERROR, "Unable to start App Engine server", e);
       throw new UnableToCompleteException();
     }
   }
@@ -141,102 +122,6 @@ public class AppEngineLauncher extends ServletContainerLauncher {
 
     if (appRootDir == null) {
       throw new NullPointerException("app root directory cannot be null");
-    }
-  }
-
-  private static class LogAdapterHandler extends Handler implements PropertyChangeListener {
-    private final TreeLogger treeLogger;
-
-    public LogAdapterHandler(TreeLogger treeLogger) {
-      this.treeLogger = treeLogger;
-      setLevel(Level.FINEST);
-      setFilter(null);
-      setFormatter(new Formatter() {
-          @Override
-          public String format(LogRecord record) {
-            return formatMessage(record);
-          }
-      });
-    }
-
-    public void install() {
-      adjustRootHandlers();
-      LogManager.getLogManager().addPropertyChangeListener(this);
-    }
-
-    /**
-     * This method is invoked when the LogManager configuration changes.
-     */
-    @Override
-    public void propertyChange(PropertyChangeEvent event) {
-      adjustRootHandlers();
-    }
-
-    void adjustRootHandlers() {
-      Logger root = Logger.getLogger("");
-      boolean foundOurHandler = false;
-      for (Handler handler : new ArrayList<Handler>(Arrays.asList(root.getHandlers()))) {
-        if (handler == this) {
-          foundOurHandler = true;
-        } else if (handler instanceof ConsoleHandler) {
-          root.removeHandler(handler);
-        }
-      }
-      if (!foundOurHandler) {
-        root.addHandler(this);
-      }
-    }
-
-    public void uninstall() {
-      LogManager.getLogManager().removePropertyChangeListener(this);
-      Logger.getLogger("").removeHandler(this);
-    }
-
-    @Override
-    public synchronized void publish(LogRecord record) {
-      if (!isLoggable(record)) {
-        return;
-      }
-      TreeLogger.Type type = convertLogLevel(record.getLevel());
-      if (!treeLogger.isLoggable(type)) {
-        return;
-      }
-
-      String message;
-      try {
-        message = getFormatter().format(record);
-      } catch (Exception ex) {
-        reportError(null, ex, ErrorManager.FORMAT_FAILURE);
-        return;
-      }
-      treeLogger.log(type, message, record.getThrown());
-    }
-
-    private TreeLogger.Type convertLogLevel(Level level) {
-      long intLevel = level.intValue();
-
-      if (intLevel >= Level.SEVERE.intValue()) {
-        return TreeLogger.Type.ERROR;
-      } else if (intLevel >= Level.WARNING.intValue()) {
-        return TreeLogger.Type.WARN;
-      } else if (intLevel >= Level.INFO.intValue()) {
-        return TreeLogger.Type.INFO;
-      } else if (intLevel >= Level.FINE.intValue()) {
-        return TreeLogger.Type.TRACE;
-      } else if (intLevel >= Level.FINER.intValue()) {
-        return TreeLogger.Type.DEBUG;
-      } else {
-        return TreeLogger.Type.ALL;
-      }
-    }
-
-    @Override
-    public void flush() {
-    }
-
-    @Override
-    public void close() {
-      flush();
     }
   }
 }

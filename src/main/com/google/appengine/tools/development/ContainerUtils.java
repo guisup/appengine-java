@@ -51,7 +51,7 @@ class ContainerUtils {
         if (result == null) {
           result = container;
         } else {
-          System.err.println("Warning: Found more than one servlet container providers: "
+          System.err.println("Warning: Found more than one servlet container provider: "
               + result.getClass() + ", " + container.getClass()
               + ". And the first one will be used!");
           break;

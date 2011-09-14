@@ -219,6 +219,19 @@ public class AppAdminImpl implements AppAdmin {
     }
   }
 
+  @Override
+  public void setDefaultVersion() {
+    ServerConnection connection = getServerConnection(options);
+    try {
+      AppVersionUpload uploader = createAppVersionUpload(connection, app, null);
+      uploader.setDefaultVersion();
+    } catch (Throwable t) {
+      errorWriter.println("Unable to set default version:");
+      t.printStackTrace(errorWriter);
+      throw new AdminException("Unable to set default version for app: " + t.getMessage(), t);
+    }
+  }
+
   public List<CronEntry> cronInfo() {
     try {
       List<CronEntry> result = new ArrayList<CronEntry>();

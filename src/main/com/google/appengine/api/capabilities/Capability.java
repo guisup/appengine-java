@@ -13,39 +13,43 @@ public class Capability {
   /**
    * Availability of BlobstoreService.
    */
-  public final static Capability BLOBSTORE = new Capability("blobstore");
+  public static final Capability BLOBSTORE = new Capability("blobstore");
   /**
    * Availability of the datastore.
    */
-  public final static Capability DATASTORE = new Capability("datastore_v3");
+  public static final Capability DATASTORE = new Capability("datastore_v3");
   /**
    * Availability of datastore writes.
    */
-  public final static Capability DATASTORE_WRITE = new Capability("datastore_v3", "write");
+  public static final Capability DATASTORE_WRITE = new Capability("datastore_v3", "write");
   /**
    * Availability of the ImagesService.
    */
-  public final static Capability IMAGES = new Capability("images");
+  public static final Capability IMAGES = new Capability("images");
   /**
    * Availability of theMailService.
    */
-  public final static Capability MAIL = new Capability("mail");
+  public static final Capability MAIL = new Capability("mail");
+   /**
+   * Availability of the ProspectiveSearchService.
+   */
+  public static final Capability PROSPECTIVE_SEARCH = new Capability("matcher");
   /**
    * Availability ofMemcacheService.
    */
-  public final static Capability MEMCACHE = new Capability("memcache");
+  public static final Capability MEMCACHE = new Capability("memcache");
   /**
    * Availability of TaskQueueService.
    */
-  public final static Capability TASKQUEUE = new Capability("taskqueue");
+  public static final Capability TASKQUEUE = new Capability("taskqueue");
   /**
    * Availability of the URLFetchService.
    */
-  public final static Capability URL_FETCH = new Capability("urlfetch");
+  public static final Capability URL_FETCH = new Capability("urlfetch");
   /**
    * Availability of the XMPPService.
    */
-  public final static Capability XMPP = new Capability("xmpp");
+  public static final Capability XMPP = new Capability("xmpp");
 
   private final String packageName;
   private final String name;
