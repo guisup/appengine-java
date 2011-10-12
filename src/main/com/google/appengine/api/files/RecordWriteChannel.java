@@ -9,6 +9,10 @@ import java.nio.channels.WritableByteChannel;
 /**
  * A @{link WritableByteChannel} for writing records to an {@link FileWriteChannel}.
  * <p>
+ * The format of these records is defined by the leveldb log format:
+ * http://leveldb.googlecode.com/svn/trunk/doc/log_format.txt
+ * </p>
+ * <p>
  * An instance of @{link RecordWriteChannel} may be obtained from the method:
  * @{link {@link FileService#openRecordWriteChannel(AppEngineFile, boolean)}.
  * </p>

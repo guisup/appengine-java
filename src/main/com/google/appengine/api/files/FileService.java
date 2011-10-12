@@ -129,4 +129,48 @@ public interface FileService {
    */
   AppEngineFile getBlobFile(BlobKey blobKey) throws FileNotFoundException;
 
+  /**
+   * Given an {@link AppEngineFile} returns a {@link RecordWriteChannel} that may be used for
+   * writing to the file using the leveldb log format.
+   *
+   * @param file the file to which to write records. The file must exist, be closed, and it
+   *        must not yet have been finalized.
+   * @param lock should the file be locked for exclusive access?
+   * @throws FileNotFoundException if the file does not exist in the backend
+   *         repository. The file may have been deleted by another request, or
+   *         the file may have been lost due to system failure or a scheduled
+   *         relocation. Each backend repository offers different guarantees
+   *         regarding when this is possible.
+   * @throws FinalizationException if the file has already been finalized. The
+   *         file may have been finalized by another request.
+   * @throws LockException if the file is locked in a different App Engine
+   *         request, or if {@code lock = true} and the file is opened in a
+   *         different App Engine request
+   * @throws IOException if any other unexpected problem occurs
+   */
+  RecordWriteChannel openRecordWriteChannel(AppEngineFile file, boolean lock)
+      throws FileNotFoundException, FinalizationException, LockException, IOException;
+
+  /**
+   * Given an {@link AppEngineFile}, returns a {@link RecordReadChannel} that may
+   * be used for reading records from a file written using the leveldb log format.
+   *
+   * @param file The file from which to read records. The file must exist, be closed, and it
+   *        must have been finalized.
+   * @param lock Should the file be locked for exclusive access?
+   * @throws FileNotFoundException if the file does not exist in the backend
+   *         repository. The file may have been deleted by another request, or
+   *         the file may have been lost due to system failure or a scheduled
+   *         relocation. Each backend repository offers different guarantees
+   *         regarding when this is possible.
+   * @throws FinalizationException if the file has not yet been finalized
+   * @throws LockException if the file is locked in a different App Engine
+   *         request, or if {@code lock = true} and the file is opened in a
+   *         different App Engine request
+   * @throws IOException if any other problem occurs contacting the backend
+   *         system
+   */
+  RecordReadChannel openRecordReadChannel(AppEngineFile file, boolean lock)
+      throws FileNotFoundException, LockException, IOException;
+
 }

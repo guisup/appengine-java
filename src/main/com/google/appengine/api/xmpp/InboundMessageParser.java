@@ -19,6 +19,19 @@ import javax.mail.MessagingException;
  *
  */
 class InboundMessageParser extends HttpRequestParser {
+  /**
+   * Parse the POST data of the given request to create a {@link Message} object.
+   *
+   * @params req The {@link HttpServletRequest} whose POST data should be parsed.
+   *
+   * @return A {@link Message} object with fields retrieved from the POST data.
+   *
+   * @throws IOException if the POST data cannot be read.
+   * @throws MessagingException if the POST data cannot be parsed.
+   * @throws IllegalStateException if the request's POST data input stream has
+   *     already been read (eg. by calling {@code HttpServletRequest.getReader()} or
+   *     reading the stream from {@code HttpServletRequest.getInputStream()}).
+   */
   static Message parseMessage(HttpServletRequest request) throws IOException {
     try {
       MimeMultipart multipart = parseMultipartRequest(request);

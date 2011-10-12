@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package com.google.appengine.demos.shardedcounter.v2;
+package com.google.appengine.demos.shardedcounter.jdo.v3;
 
 import java.io.IOException;
 import javax.servlet.http.HttpServlet;
@@ -28,6 +28,7 @@ import javax.servlet.http.HttpServletResponse;
  */
 public class CounterPage extends HttpServlet {
 
+  @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
     displayPageStart(resp);
@@ -36,12 +37,12 @@ public class CounterPage extends HttpServlet {
     displayInputFormAndClose(resp);
   }
 
+  @Override
   public void doPost(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
     displayPageStart(resp);
     ShardedCounter counter = getOrCreateCounter(resp);
-    String query = req.getQueryString();
-    if (query != null && query.equals("addShard=true")) {
+    if (Boolean.parseBoolean(req.getParameter("addShard"))) {
       displayCount(counter, resp);
       displayNumberOfShards(counter.addShard(), resp);
     } else {
@@ -63,20 +64,20 @@ public class CounterPage extends HttpServlet {
   private ShardedCounter getOrCreateCounter(HttpServletResponse resp)
       throws IOException {
     CounterFactory factory = new CounterFactory();
-    ShardedCounter counter = factory.getCounter("test'\"counter");
+    ShardedCounter counter = factory.getCounter("test-counter");
     if (counter == null) {
-      counter = factory.createCounter("test'\"counter");
+      counter = factory.createCounter("test-counter");
       counter.addShard();
       resp.getWriter().println(
-          "<p>No counter named 'test'\"counter', so we created one.</p>");
+          "<p>No counter named 'test-counter', so we created one.</p>");
     }
     return counter;
   }
 
   private void displayCount(ShardedCounter counter, HttpServletResponse resp)
       throws IOException {
-    resp.getWriter().println("  <p>Current count: " + counter.getCount()
-        + "</p>");
+    resp.getWriter()
+        .println("<p>Current count: " + counter.getCount() + "</p>");
   }
 
   private void displayCounts(ShardedCounter counter, HttpServletResponse resp)
@@ -97,15 +98,15 @@ public class CounterPage extends HttpServlet {
 
   private void displayInputFormAndClose(HttpServletResponse resp)
       throws IOException {
-    resp.getWriter().println("<form action=\"/v2\" method=\"post\">");
-    resp.getWriter().println(
-        "  <div><input type=\"submit\" value=\"+1\" /></div>");
+    resp.getWriter().println("<form action='.' method='post'>");
+    resp.getWriter().println("  <div><input type='submit' value='+1' /></div>");
     resp.getWriter().println("</form>");
 
+    resp.getWriter().println("<form action='.' method='post'>");
     resp.getWriter().println(
-        "<form action=\"/v2?addShard=true\" method=\"post\">");
+        "  <input type='hidden' name='addShard' value='true'>");
     resp.getWriter().println(
-        "  <div><input type=\"submit\" value=\"Add Shard\" /></div>");
+        "  <div><input type='submit' value='Add Shard' /></div>");
     resp.getWriter().println("</form>");
 
     resp.getWriter().println("  </body>");

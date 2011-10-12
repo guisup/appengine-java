@@ -63,7 +63,7 @@ import javax.xml.validation.SchemaFactory;
  * indexes, or otherwise manage it.
  *
  */
-public class Application {
+public class Application implements GenericApplication {
 
   private static Pattern JSP_REGEX = Pattern.compile(".*\\.jspx?");
 
@@ -207,6 +207,7 @@ public class Application {
    * Returns the application identifier, from the AppEngineWebXml config
    * @return application identifier
    */
+  @Override
   public String getAppId() {
     return appEngineWebXml.getAppId();
   }
@@ -215,14 +216,17 @@ public class Application {
    * Returns the application version, from the AppEngineWebXml config
    * @return application version
    */
+  @Override
   public String getVersion() {
     return appEngineWebXml.getMajorVersionId();
   }
 
+  @Override
   public boolean isPrecompilationEnabled() {
     return appEngineWebXml.getPrecompilationEnabled();
   }
 
+  @Override
   public List<ErrorHandler> getErrorHandlers() {
     class ErrorHandlerImpl implements ErrorHandler {
       private AppEngineWebXml.ErrorHandler errorHandler;
@@ -249,6 +253,7 @@ public class Application {
     return errorHandlers;
   }
 
+  @Override
   public String getMimeTypeIfStatic(String path) {
     if (!path.contains("__static__/")) {
       return null;
@@ -279,6 +284,7 @@ public class Application {
    * Returns the CronXml describing the applications' cron jobs.
    * @return a cron descriptor, possibly empty or {@code null}
    */
+  @Override
   public CronXml getCronXml() {
     return cronXml;
   }
@@ -287,6 +293,7 @@ public class Application {
    * Returns the QueueXml describing the applications' task queues.
    * @return a queue descriptor, possibly empty or {@code null}
    */
+  @Override
   public QueueXml getQueueXml() {
     return queueXml;
   }
@@ -295,6 +302,7 @@ public class Application {
    * Returns the DosXml describing the applications' DoS entries.
    * @return a dos descriptor, possibly empty or {@code null}
    */
+  @Override
   public DosXml getDosXml() {
     return dosXml;
   }
@@ -303,6 +311,7 @@ public class Application {
    * Returns the CronXml describing the applications' cron jobs.
    * @return a cron descriptor, possibly empty or {@code null}
    */
+  @Override
   public IndexesXml getIndexesXml() {
     return indexesXml;
   }
@@ -317,6 +326,7 @@ public class Application {
     return webXml;
   }
 
+  @Override
   public BackendsXml getBackendsXml() {
     return backendsXml;
   }
@@ -327,6 +337,7 @@ public class Application {
    *
    * @throws IllegalStateException if createStagingDirectory has not been called.
    */
+  @Override
   public String getApiVersion() {
     if (apiVersion == null) {
       throw new IllegalStateException("Must call createStagingDirectory first.");
@@ -340,6 +351,7 @@ public class Application {
    *
    * @return a not {@code null} path pointing to a directory
    */
+  @Override
   public String getPath() {
     return baseDir.getAbsolutePath();
   }
@@ -347,10 +359,12 @@ public class Application {
   /**
    * Returns the staging directory, or {@code null} if none has been created.
    */
+  @Override
   public File getStagingDir() {
     return stageDir;
   }
 
+  @Override
   public void resetProgress() {
     updateProgress = 0;
     progressAmount = 0;
@@ -364,6 +378,7 @@ public class Application {
    * @return staging directory
    * @throws IOException
    */
+  @Override
   public File createStagingDirectory(ApplicationProcessingOptions opts)
       throws IOException {
     if (stageDir != null) {
@@ -413,7 +428,7 @@ public class Application {
                 opts.getMaxJarSize(), opts.getJarSplittingExcludes());
     }
 
-    checkFileSizes(stageDir, AppAdminFactory.MAX_FILE_UPLOAD);
+    checkFileSizes(stageDir, AppVersionUpload.MAX_FILE_SIZE);
 
     return stageDir;
   }
@@ -631,7 +646,7 @@ public class Application {
                + file.getPath() + "\".  Consider using --enable_jar_splitting.";
           } else {
             message = "Found a file too large to upload: \""
-               + file.getPath() + "\".  Must be under " + max + " bytes.";
+               + file.getPath() + "\".  Must not be over " + max + " bytes.";
           }
           throw new IllegalStateException(message);
         }
@@ -777,6 +792,7 @@ public class Application {
   }
 
   /** deletes the staging directory, if one was created. */
+  @Override
   public void cleanStagingDirectory() {
     if (stageDir != null) {
       recursiveDelete(stageDir);
@@ -794,14 +810,17 @@ public class Application {
     dead.delete();
   }
 
+  @Override
   public void setListener(UpdateListener l) {
     listener = l;
   }
 
+  @Override
   public void setDetailsWriter(PrintWriter detailsWriter) {
     this.detailsWriter = detailsWriter;
   }
 
+  @Override
   public void statusUpdate(String message, int amount) {
     updateProgress += progressAmount;
     if (updateProgress > 99) {
@@ -814,6 +833,7 @@ public class Application {
     }
   }
 
+  @Override
   public void statusUpdate(String message) {
     int amount = progressAmount / 4;
     updateProgress += amount;
@@ -846,19 +866,11 @@ public class Application {
    *
    * @throws IllegalStateException if createStagingDirectory has not been called.
    */
+  @Override
   public String getAppYaml() {
     if (appYaml == null) {
       throw new IllegalStateException("Must call createStagingDirectory first.");
     }
     return appYaml;
-  }
-
-  public interface ErrorHandler {
-    /** Returns the not {@code null} error handler file name. */
-    public abstract String getFile();
-    /** Returns the error code, possibly {@code null}. */
-    public abstract String getErrorCode();
-    /** Returns the not {@code null} error handler mime-type. */
-    public abstract String getMimeType();
   }
 }

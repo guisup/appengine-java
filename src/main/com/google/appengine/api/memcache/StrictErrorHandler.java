@@ -3,7 +3,7 @@ package com.google.appengine.api.memcache;
 
 /**
  * A strict error handler, which will throw {@link MemcacheServiceException}
- * for any service error condition.
+ * or {@link InvalidValueException} for any service error condition.
  *
  */
 public class StrictErrorHandler implements ErrorHandler {
@@ -14,6 +14,7 @@ public class StrictErrorHandler implements ErrorHandler {
    * @param t the classpath error exception
    * @throws MemcacheServiceException for any service error.
    */
+  @Override
   public void handleDeserializationError(InvalidValueException t) {
     throw t;
   }
@@ -24,6 +25,7 @@ public class StrictErrorHandler implements ErrorHandler {
    * @param t the service error exception
    * @throws MemcacheServiceException for any service error.
    */
+  @Override
   public void handleServiceError(MemcacheServiceException t) {
     throw t;
   }

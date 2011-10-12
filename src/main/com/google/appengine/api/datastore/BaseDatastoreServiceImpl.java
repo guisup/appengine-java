@@ -117,9 +117,7 @@ abstract class BaseDatastoreServiceImpl {
     DatastorePb.Transaction remoteTxn = new DatastorePb.Transaction();
     DatastorePb.BeginTransactionRequest request = new DatastorePb.BeginTransactionRequest();
     request.setApp(DatastoreApiHelper.getCurrentAppId());
-    if (options.allowsMultipleEntityGroups() != null) {
-      request.setAllowMultipleEg(options.allowsMultipleEntityGroups());
-    }
+    request.setAllowMultipleEg(options.isXG());
 
     Future<DatastorePb.Transaction> future =
         DatastoreApiHelper.makeAsyncCall(apiConfig, "BeginTransaction", request, remoteTxn);

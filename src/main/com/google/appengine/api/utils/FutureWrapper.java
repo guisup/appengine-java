@@ -13,8 +13,10 @@ import java.util.concurrent.locks.ReentrantLock;
  * {@code FutureWrapper} is a simple {@link Future} that wraps a
  * parent {@code Future}.  This class is thread-safe.
  *
+ * @param <K> The type of this {@link Future}
+ * @param <V> The type of the wrapped {@link Future}
  */
-abstract public class FutureWrapper<K,V> implements Future<V> {
+public abstract class FutureWrapper<K, V> implements Future<V> {
 
   private final Future<K> parent;
 
@@ -42,27 +44,38 @@ abstract public class FutureWrapper<K,V> implements Future<V> {
     return parent.isDone();
   }
 
-  private V wrapAndCache(K data) throws ExecutionException {
-    try {
-      result = wrap(data);
-    } catch (Exception e) {
-      throw new ExecutionException(e);
-    }
+  private V handleParentException(Throwable cause) throws Throwable {
+    result = absorbParentException(cause);
+    hasResult = true;
+    return result;
+  }
+
+  private V wrapAndCache(K data) throws Exception {
+    result = wrap(data);
     hasResult = true;
     return result;
   }
 
   @Override
-  public V get() throws InterruptedException, ExecutionException {
+  public V get() throws ExecutionException, InterruptedException {
     lock.lock();
     try {
       if (hasResult) {
         return result;
       }
+
       try {
-        return wrapAndCache(parent.get());
-      } catch (ExecutionException ex) {
-        throw new ExecutionException(convertException(ex.getCause()));
+        K value;
+        try {
+          value = parent.get();
+        } catch (ExecutionException ex) {
+          return handleParentException(ex.getCause());
+        }
+        return wrapAndCache(value);
+      } catch (InterruptedException ex) {
+        throw ex;
+      } catch (Throwable ex) {
+        throw new ExecutionException(convertException(ex));
       }
     } finally {
       lock.unlock();
@@ -83,9 +96,19 @@ abstract public class FutureWrapper<K,V> implements Future<V> {
       long remainingDeadline = TimeUnit.MILLISECONDS.convert(timeout, unit) -
           (System.currentTimeMillis() - tryLockStart);
       try {
-        return wrapAndCache(parent.get(remainingDeadline, TimeUnit.MILLISECONDS));
-      } catch (ExecutionException ex) {
-        throw new ExecutionException(convertException(ex.getCause()));
+        K value;
+        try {
+          value = parent.get(remainingDeadline, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException ex) {
+          return handleParentException(ex.getCause());
+        }
+        return wrapAndCache(value);
+      } catch (InterruptedException ex) {
+        throw ex;
+      } catch (TimeoutException ex) {
+        throw ex;
+      } catch (Throwable ex) {
+        throw new ExecutionException(convertException(ex));
       }
     } finally {
       lock.unlock();
@@ -102,6 +125,15 @@ abstract public class FutureWrapper<K,V> implements Future<V> {
     return super.equals(obj);
   }
 
-  abstract protected V wrap(K key) throws Exception;
-  abstract protected Throwable convertException(Throwable cause);
+  protected abstract V wrap(K key) throws Exception;
+
+  /**
+   * Override this method if you want to suppress an exception thrown by the
+   * parent and return a value instead.
+   */
+  protected V absorbParentException(Throwable cause) throws Throwable {
+    throw cause;
+  }
+
+  protected abstract Throwable convertException(Throwable cause);
 }

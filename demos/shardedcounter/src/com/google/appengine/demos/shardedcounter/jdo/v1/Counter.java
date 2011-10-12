@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
-package com.google.appengine.demos.shardedcounter.v1;
+package com.google.appengine.demos.shardedcounter.jdo.v1;
 
-import com.google.appengine.demos.shardedcounter.PMF;
+import com.google.appengine.demos.shardedcounter.jdo.PMF;
 
 import java.util.List;
 import javax.jdo.PersistenceManager;

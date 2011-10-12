@@ -285,9 +285,8 @@ public final class Entity implements Cloneable, Serializable {
    * by the built-in single property indexes. To store other types without
    * being indexed, use {@code #setUnindexedProperty}.
    *
-   * @param value may be one of the supported datatypes, a heterogenous
-   * {@code Collection} of one of the supported datatypes, or an
-   * {@code UnindexedValue} wrapping one of the supported datatypes.
+   * @param value may be one of the supported datatypes or a heterogeneous
+   * {@code Collection} of one of the supported datatypes.
    *
    * @throws IllegalArgumentException If the value is not of a type that
    * the data store supports.
@@ -303,7 +302,7 @@ public final class Entity implements Cloneable, Serializable {
    * Like {@code #setProperty}, but doesn't index the property in the built-in
    * single property indexes.
    * <p>
-   * @param value may be one of the supported datatypes, or a heterogenous
+   * @param value may be one of the supported datatypes, or a heterogeneous
    * {@code Collection} of one of the supported datatypes.
    * <p>
    * Overrides any existing value for this property, whether indexed or

@@ -23,6 +23,8 @@ public interface Transaction {
    * invoked, this method will block on the completion of those calls before
    * proceeding.
    * @throws DatastoreFailureException If a datastore error occurs.
+   * @throws ConcurrentModificationException If some other transaction modified
+   *   the same entity groups concurrently.
    */
   void commit();
 

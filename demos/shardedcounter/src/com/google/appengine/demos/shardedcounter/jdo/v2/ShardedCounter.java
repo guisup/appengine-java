@@ -13,9 +13,9 @@
  * limitations under the License.
  */
 
-package com.google.appengine.demos.shardedcounter.v2;
+package com.google.appengine.demos.shardedcounter.jdo.v2;
 
-import com.google.appengine.demos.shardedcounter.PMF;
+import com.google.appengine.demos.shardedcounter.jdo.PMF;
 
 import java.util.List;
 import java.util.Random;

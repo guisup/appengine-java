@@ -8,6 +8,10 @@ import java.nio.ByteBuffer;
 /**
  * A channel for reading records from a {@link FileReadChannel}.
  * <p>
+ * The format of these records is defined by the leveldb log format:
+ * http://leveldb.googlecode.com/svn/trunk/doc/log_format.txt
+ * </p>
+ * <p>
  * An instance of @{link RecordReadChannel} may be obtained from the method:
  * @{link {@link FileService#openRecordReadChannel(AppEngineFile, boolean)}.
  * </p>

@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package com.google.appengine.demos.shardedcounter.v2;
+package com.google.appengine.demos.shardedcounter.jdo.v1;
 
 import javax.jdo.annotations.IdGeneratorStrategy;
 import javax.jdo.annotations.IdentityType;
@@ -22,44 +22,35 @@ import javax.jdo.annotations.Persistent;
 import javax.jdo.annotations.PrimaryKey;
 
 /**
- * Represents a counter in the datastore and stores the number of shards.
+ * A JDO object representing a single shard belonging to the counter.
  *
  */
 @PersistenceCapable(identityType = IdentityType.APPLICATION)
-public class Counter {
+public class LimitedCounterShard {
   @PrimaryKey
   @Persistent(valueStrategy = IdGeneratorStrategy.IDENTITY)
   private Long id;
 
   @Persistent
-  private String counterName;
+  private Integer count;
 
-  @Persistent
-  private Integer numShards;
-
-  public Counter(String counterName) {
-    this.counterName = counterName;
-    this.numShards = new Integer(0);
+  public LimitedCounterShard() {
+    this.count = new Integer(0);
   }
 
-  public Counter(String counterName, Integer numShards) {
-    this.counterName = counterName;
-    this.numShards = numShards;
+  public LimitedCounterShard(Integer count) {
+    this.count = count;
   }
 
   public Long getId() {
     return id;
   }
 
-  public String getCounterName() {
-    return counterName;
+  public Integer getCount() {
+    return count;
   }
 
-  public Integer getShardCount() {
-    return numShards;
-  }
-
-  public void setShardCount(int count) {
-    this.numShards = new Integer(count);
+  public void setCount(Integer count) {
+    this.count = count;
   }
 }

@@ -13,7 +13,7 @@ public class UpdateFailureEvent {
   private Throwable cause;
   private final String details;
 
-  UpdateFailureEvent(Throwable cause, String failureMessage, String details) {
+  public UpdateFailureEvent(Throwable cause, String failureMessage, String details) {
     this.failureMessage = failureMessage;
     this.cause = cause;
     this.details = details;

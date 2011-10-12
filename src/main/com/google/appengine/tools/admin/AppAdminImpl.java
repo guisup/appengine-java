@@ -27,12 +27,12 @@ import java.util.List;
 public class AppAdminImpl implements AppAdmin {
 
   private ConnectOptions options;
-  private Application app;
+  private GenericApplication app;
   private PrintWriter errorWriter;
   private ApplicationProcessingOptions appOptions;
   private final Class<? extends AppVersionUpload> appVersionUploadClass;
 
-  AppAdminImpl(ConnectOptions options, Application app, PrintWriter errorWriter,
+  AppAdminImpl(ConnectOptions options, GenericApplication app, PrintWriter errorWriter,
       ApplicationProcessingOptions appOptions,
       Class<? extends AppVersionUpload> appVersionUploadClass) {
     this.options = options;
@@ -312,10 +312,10 @@ public class AppAdminImpl implements AppAdmin {
     }
   }
 
-  private AppVersionUpload createAppVersionUpload(ServerConnection connection, Application app,
-      String backend) throws Exception {
+  private AppVersionUpload createAppVersionUpload(ServerConnection connection,
+      GenericApplication app, String backend) throws Exception {
     Constructor<? extends AppVersionUpload> constructor =
-        appVersionUploadClass.getConstructor(ServerConnection.class, Application.class,
+        appVersionUploadClass.getConstructor(ServerConnection.class, GenericApplication.class,
             String.class);
     return constructor.newInstance(connection, app, backend);
   }

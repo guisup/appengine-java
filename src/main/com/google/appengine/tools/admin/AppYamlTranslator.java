@@ -106,6 +106,10 @@ public class AppYamlTranslator {
       builder.append("threadsafe: True\n");
     }
 
+    if (appEngineWebXml.getCodeLock()) {
+      builder.append("code_lock: True\n");
+    }
+
     List<AdminConsolePage> adminConsolePages = appEngineWebXml.getAdminConsolePages();
     if (!adminConsolePages.isEmpty()) {
       builder.append("admin_console:\n");

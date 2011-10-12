@@ -2,7 +2,7 @@
 
 package com.google.appengine.tools.admin;
 
-import com.google.appengine.tools.admin.Application.ErrorHandler;
+import com.google.appengine.tools.admin.GenericApplication.ErrorHandler;
 import com.google.appengine.tools.util.FileIterator;
 import com.google.common.base.Join;
 
@@ -33,12 +33,12 @@ public class AppVersionUpload {
   /**
    * Max number of files per application, should match the limit server-side.
    */
-  private static final int MAX_FILE_COUNT = 3000;
-  private static final long MB = 1000000;
+  private static final int MAX_FILE_COUNT = 10000;
+  private static final int MB = 1000000;
   /**
    * Max size of an individual file, should match server-side limit.
    */
-  private static final long MAX_FILE_SIZE = 10 * MB;
+  static final int MAX_FILE_SIZE = 32 * MB;
   /**
    * Max total size of resource files, should match server-side limit.
    */
@@ -50,14 +50,14 @@ public class AppVersionUpload {
   private static final int MAX_FILES_PER_PRECOMPILE = 50;
 
   protected ServerConnection connection;
-  protected Application app;
+  protected GenericApplication app;
   protected final String backend;
   private Logger logger = Logger.getLogger(AppVersionUpload.class.getName());
   private boolean inTransaction = false;
   private Map<String, FileInfo> files = new HashMap<String, FileInfo>();
   private boolean deployed = false;
 
-  public AppVersionUpload(ServerConnection connection, Application app) {
+  public AppVersionUpload(ServerConnection connection, GenericApplication app) {
     this(connection, app, null);
   }
 
@@ -70,7 +70,7 @@ public class AppVersionUpload {
    * @param backend if supplied and non-{@code null}, a particular backend is
    *        being updated
    */
-  public AppVersionUpload(ServerConnection connection, Application app,
+  public AppVersionUpload(ServerConnection connection, GenericApplication app,
       String backend) {
     this.connection = connection;
     this.app = app;

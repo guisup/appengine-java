@@ -7,8 +7,8 @@ import java.util.List;
 /**
  * Describes options for transactions, passed at transaction creation time.
  *
- * <p>{@code multipleEntityGroups} is a boolean that enables or disables the
- * use of multiple entity groups in a single transaction.
+ * <p>{@code XG} is a boolean that enables or disables the use of cross-group
+ * transactions.
  *
  * <p>Notes on usage:<br>
  * The recommended way to instantiate a {@code TransactionsOptions} object is to
@@ -21,7 +21,7 @@ import java.util.List;
  *
  * ...
  *
- * datastoreService.beginTransaction(allowMultipleEntityGroups(true));
+ * datastoreService.beginTransaction(withXG(true));
  *
  * </pre>
  * </blockquote>
@@ -29,48 +29,72 @@ import java.util.List;
  */
 public final class TransactionOptions {
 
-  private Boolean multipleEntityGroups;
+  private boolean xg = false;
 
   private TransactionOptions() {
   }
 
   TransactionOptions(TransactionOptions original) {
-    this.multipleEntityGroups = original.multipleEntityGroups;
+    this.xg = original.xg;
   }
 
   /**
-   * Enable or disable the use of multiple entity groups in a single transaction.
+   * Enable or disable the use of cross-group transactions.
    *
-   * @param enable true to allow multiple entity groups in a transaction, false to
+   * @param enable true to cross-group transactions, false to
    *   restrict transactions to a single entity group.
    * @return {@code this} (for chaining)
    */
-  public TransactionOptions multipleEntityGroups(boolean enable) {
-    this.multipleEntityGroups = enable;
-    return this;
-  }
-
-  public TransactionOptions clearMultipleEntityGroups() {
-    this.multipleEntityGroups = null;
+  public TransactionOptions setXG(boolean enable) {
+    this.xg = enable;
     return this;
   }
 
   /**
-   * @return {@code true} if multiple entity groups are allowed in the
-   *   transaction, {@code false} if they are not allowed, or {@code null} if
-   *   the setting was not provided.
+   * Return the cross-group transaction setting to default (disabled).
    */
-  public Boolean allowsMultipleEntityGroups() {
-    return multipleEntityGroups;
+  public TransactionOptions clearXG() {
+    this.xg = false;
+    return this;
+  }
+
+  /**
+   * @return {@code true} if cross-group transactions are allowed,
+   *   {@code false} if they are not allowed.
+   */
+  public boolean isXG() {
+    return xg;
+  }
+
+  /**
+   * @deprecated
+   * @see {@link #setXG}.
+   */
+  @Deprecated public TransactionOptions multipleEntityGroups(boolean enable) {
+    return setXG(enable);
+  }
+
+  /**
+   * @deprecated
+   * @see {@link #clearXG}.
+   */
+  @Deprecated public TransactionOptions clearMultipleEntityGroups() {
+    return clearXG();
+  }
+
+  /**
+   * @deprecated
+   * @see {@link #isXG}.
+   */
+  @Deprecated public Boolean allowsMultipleEntityGroups() {
+    return isXG();
   }
 
   @Override
   public int hashCode() {
     int result = 0;
 
-    if (multipleEntityGroups != null) {
-      result = result * 31 + (multipleEntityGroups ? 1 : 0);
-    }
+    result = result * 31 + (xg ? 1 : 0);
 
     return result;
   }
@@ -87,24 +111,14 @@ public final class TransactionOptions {
 
     TransactionOptions that = (TransactionOptions) obj;
 
-    if (multipleEntityGroups != null) {
-      if (!multipleEntityGroups.equals(that.multipleEntityGroups)) {
-        return false;
-      }
-    } else if (that.multipleEntityGroups != null) {
-      return false;
-    }
-
-    return true;
+    return xg == that.xg;
   }
 
   @Override
   public String toString() {
     List<String> result = new ArrayList<String>();
 
-    if (multipleEntityGroups != null) {
-      result.add("multipleEntityGroups=" + multipleEntityGroups);
-    }
+    result.add("XG=" + xg);
 
     return "TransactionOptions" + result;
   }
@@ -115,20 +129,28 @@ public final class TransactionOptions {
   public static final class Builder {
     /**
      * Create a {@link TransactionOptions} that enables or disables the use of
-     * multiple entity groups in a single transaction. Shorthand for
-     * <code>TransactionOptions.withDefaults().allowMultipleEntityGroups(...);</code>
+     * cross-group transactions. Shorthand for
+     * <code>TransactionOptions.withDefaults().setXG(...);</code>
      *
-     * @param enable true to allow multiple entity groups in a transaction, false to
+     * @param enable true to allow cross-group transactions, false to
      *   restrict transactions to a single entity group.
      * @return {@code this} (for chaining)
      */
-    public static TransactionOptions allowMultipleEntityGroups(boolean enable) {
-      return withDefaults().multipleEntityGroups(enable);
+    public static TransactionOptions withXG(boolean enable) {
+      return withDefaults().setXG(enable);
+    }
+
+    /**
+     * @deprecated
+     * @see {@link #withXG}
+     */
+    @Deprecated public static TransactionOptions allowMultipleEntityGroups(boolean enable) {
+      return withDefaults().setXG(enable);
     }
 
     /**
      * Helper method for creating a {@link TransactionOptions} instance with
-     * default values.  The defaults are {@code null} for all values.
+     * default values.  The defaults is false (disabled) for XG.
      */
     public static TransactionOptions withDefaults() {
       return new TransactionOptions();

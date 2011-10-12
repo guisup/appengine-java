@@ -1,4 +1,4 @@
-/* Copyright (c) 2009 Google Inc.
+/* Copyright (c) 2011 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package com.google.appengine.demos.shardedcounter.v3;
+package com.google.appengine.demos.shardedcounter.java.v2;
 
 import java.io.IOException;
 import javax.servlet.http.HttpServlet;
@@ -22,32 +22,33 @@ import javax.servlet.http.HttpServletResponse;
 
 /**
  * Renders an HTML page showing current count of the sharded counter.
- *
+ * 
  * Through the form, the user can increment the counter or add new shards.
- *
  */
 public class CounterPage extends HttpServlet {
 
+  @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
     displayPageStart(resp);
-    ShardedCounter counter = getOrCreateCounter(resp);
+    ShardedCounter counter = new ShardedCounter("test-counter");
     displayCounts(counter, resp);
     displayInputFormAndClose(resp);
   }
 
+  @Override
   public void doPost(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
     displayPageStart(resp);
-    ShardedCounter counter = getOrCreateCounter(resp);
-    String query = req.getQueryString();
-    if (query != null && query.equals("addShard=true")) {
+    ShardedCounter counter = new ShardedCounter("test-counter");
+    if (Boolean.parseBoolean(req.getParameter("addShard"))) {
+      int inc = Integer.parseInt(req.getParameter("inc"));
       displayCount(counter, resp);
-      displayNumberOfShards(counter.addShard(), resp);
+      displayNumberOfShards(counter.addShards(inc), resp);
     } else {
       counter.increment();
       displayCount(counter, resp);
-      displayNumberOfShards(counter.getNumShards(), resp);
+      displayNumberOfShards(counter.getShardCount(), resp);
     }
     displayInputFormAndClose(resp);
   }
@@ -57,35 +58,19 @@ public class CounterPage extends HttpServlet {
     resp.getWriter().println("  <body>");
   }
 
-  /**
-   * Creates the sharded counter if it does not yet exist.
-   */
-  private ShardedCounter getOrCreateCounter(HttpServletResponse resp)
-      throws IOException {
-    CounterFactory factory = new CounterFactory();
-    ShardedCounter counter = factory.getCounter("test'\"counter");
-    if (counter == null) {
-      counter = factory.createCounter("test'\"counter");
-      counter.addShard();
-      resp.getWriter().println(
-          "<p>No counter named 'test'\"counter', so we created one.</p>");
-    }
-    return counter;
-  }
-
   private void displayCount(ShardedCounter counter, HttpServletResponse resp)
       throws IOException {
-    resp.getWriter().println("  <p>Current count: " + counter.getCount()
-        + "</p>");
+    resp.getWriter()
+        .println("<p>Current count: " + counter.getCount() + "</p>");
   }
 
   private void displayCounts(ShardedCounter counter, HttpServletResponse resp)
       throws IOException {
     displayCount(counter, resp);
-    displayNumberOfShards(counter.getNumShards(), resp);
+    displayNumberOfShards(counter.getShardCount(), resp);
   }
 
-  private void displayNumberOfShards(int shards, HttpServletResponse resp)
+  private void displayNumberOfShards(long shards, HttpServletResponse resp)
       throws IOException {
     resp.getWriter().print("<p>Counter has " + shards);
     if (shards == 1) {
@@ -97,15 +82,16 @@ public class CounterPage extends HttpServlet {
 
   private void displayInputFormAndClose(HttpServletResponse resp)
       throws IOException {
-    resp.getWriter().println("<form action=\"/v3\" method=\"post\">");
-    resp.getWriter().println(
-        "  <div><input type=\"submit\" value=\"+1\" /></div>");
+    resp.getWriter().println("<form action='.' method='post'>");
+    resp.getWriter().println("  <div><input type='submit' value='+1' /></div>");
     resp.getWriter().println("</form>");
 
+    resp.getWriter().println("<form action='.' method='post'>");
     resp.getWriter().println(
-        "<form action=\"/v3?addShard=true\" method=\"post\">");
+        "  <input type='hidden' name='addShard' value='true'>");
+    resp.getWriter().println("  <input type='hidden' name='inc' value='1'>");
     resp.getWriter().println(
-        "  <div><input type=\"submit\" value=\"Add Shard\" /></div>");
+        "  <div><input type='submit' value='Add Shard' /></div>");
     resp.getWriter().println("</form>");
 
     resp.getWriter().println("  </body>");

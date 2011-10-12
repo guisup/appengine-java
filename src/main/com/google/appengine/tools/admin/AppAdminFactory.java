@@ -17,8 +17,6 @@ import java.util.Set;
  */
 public class AppAdminFactory {
 
-  static final int MAX_FILE_UPLOAD = 10000000;
-
   private static final String JAVA_CMD_PROP = "appengine.java";
   private static final String JAVAC_CMD_PROP = "appengine.javac";
 
@@ -39,6 +37,23 @@ public class AppAdminFactory {
    * @return a not {@code null} AppAdmin
    */
   public AppAdmin createAppAdmin(ConnectOptions options, Application app, PrintWriter errorWriter) {
+    return new AppAdminImpl(options, app, errorWriter, appOptions, appVersionUploadClass);
+  }
+
+  /**
+   * Creates a new {@link AppAdmin} that can be used to administer the
+   * designated App Engine application.
+   *
+   * @param options The options used to connect to the remote server. Must not
+   *        be {@code null}.
+   * @param app The application to be administered
+   * @param errorWriter A writer to which error logs can be written. The logs
+   *        can be used for diagnosis if a failure occurs during operation. May
+   *        be {@code null}
+   * @return a not {@code null} AppAdmin
+   */
+  public AppAdmin createAppAdmin(ConnectOptions options, GenericApplication app,
+      PrintWriter errorWriter) {
     return new AppAdminImpl(options, app, errorWriter, appOptions, appVersionUploadClass);
   }
 
@@ -272,7 +287,7 @@ public class AppAdminFactory {
   /**
    * Options used in preparing an application directory for upload.
    */
-  static class ApplicationProcessingOptions {
+  public static class ApplicationProcessingOptions {
     private File java;
     private File javac;
     private boolean compileJsps = true;
@@ -508,7 +523,7 @@ public class AppAdminFactory {
    *        uploadable size.
    */
   public void setJarSplittingEnabled(boolean doSplit) {
-    appOptions.setMaxJarSize(doSplit ? MAX_FILE_UPLOAD : -1);
+    appOptions.setMaxJarSize(doSplit ? AppVersionUpload.MAX_FILE_SIZE : -1);
   }
 
   /**

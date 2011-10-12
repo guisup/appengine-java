@@ -445,7 +445,9 @@ public class Model {
     });
   }
 
-  native static void forceApplicationReload();
+  native static void forceApplicationReload() /*-{
+    $wnd.location.reload();
+  }-*/;
 
   /**
    * An rpc proxy for making calls to the server.

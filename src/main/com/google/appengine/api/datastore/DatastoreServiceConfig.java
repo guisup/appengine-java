@@ -51,15 +51,39 @@ public final class DatastoreServiceConfig {
       "appengine.datastore.defaultMaxEntityGroupsPerRpc";
 
   /**
-   * The default number of max entity groups per rpc.  Can be null.
-   */ static final Integer DEFAULT_MAX_ENTITY_GROUPS_PER_RPC =
-      getDefaultMaxEntityGroupsPerRpc();
+   * Name of a system property that users can specify to control the default
+   * max entity groups per high replication read rpc.
+   */
+  static final String DEFAULT_MAX_ENTITY_GROUPS_PER_HIGH_REP_READ_RPC_SYS_PROP =
+      "appengine.datastore.defaultMaxEntityGroupsPerHighRepReadRpc";
 
-  static Integer getDefaultMaxEntityGroupsPerRpc() {
-    String defaultMaxEntityGroupsPerRpc =
-        System.getProperty(DEFAULT_MAX_ENTITY_GROUPS_PER_RPC_SYS_PROP);
-    return defaultMaxEntityGroupsPerRpc == null ? null :
-        Integer.parseInt(defaultMaxEntityGroupsPerRpc);
+  /**
+   * The default number of max entity groups per rpc.
+   */
+  static final int DEFAULT_MAX_ENTITY_GROUPS_PER_RPC = getDefaultMaxEntityGroupsPerRpc();
+
+  /**
+   * The default number of max entity groups per high rep read rpc.
+   */
+  static final int DEFAULT_MAX_ENTITY_GROUPS_PER_HIGH_REP_READ_RPC =
+      getDefaultMaxEntityGroupsPerHighRepReadRpc();
+
+  static int getDefaultMaxEntityGroupsPerRpc() {
+    return getDefaultMaxEntityGroupsPerRpc(DEFAULT_MAX_ENTITY_GROUPS_PER_RPC_SYS_PROP, 10);
+  }
+
+  static int getDefaultMaxEntityGroupsPerHighRepReadRpc() {
+    return getDefaultMaxEntityGroupsPerRpc(
+        DEFAULT_MAX_ENTITY_GROUPS_PER_HIGH_REP_READ_RPC_SYS_PROP, 1);
+  }
+
+  /**
+   * Returns the value of the given system property as an int, or return the
+   * default value if there is no property with that name set.
+   */
+  static int getDefaultMaxEntityGroupsPerRpc(String sysPropName, int defaultVal) {
+    String sysPropVal = System.getProperty(sysPropName);
+    return sysPropVal == null ? defaultVal : Integer.parseInt(sysPropVal);
   }
 
   private ImplicitTransactionManagementPolicy implicitTransactionManagementPolicy =
@@ -71,7 +95,9 @@ public final class DatastoreServiceConfig {
 
   private int maxRpcSizeBytes = DEFAULT_RPC_SIZE_LIMIT_BYTES;
   private int maxBatchWriteEntities = DEFAULT_MAX_BATCH_WRITE_ENTITIES;
-  private int maxBatchReadEntities = DEFAULT_MAX_BATCH_GET_KEYS; private Integer maxEntityGroupsPerRpc = DEFAULT_MAX_ENTITY_GROUPS_PER_RPC;
+  private int maxBatchReadEntities = DEFAULT_MAX_BATCH_GET_KEYS;
+  private int maxEntityGroupsPerRpc = DEFAULT_MAX_ENTITY_GROUPS_PER_RPC;
+  private int maxEntityGroupsPerHighRepReadRpc = DEFAULT_MAX_ENTITY_GROUPS_PER_HIGH_REP_READ_RPC;
 
   /**
    * Cannot be directly instantiated, use {@link Builder} instead.
@@ -89,6 +115,7 @@ public final class DatastoreServiceConfig {
     maxBatchWriteEntities = config.maxBatchWriteEntities;
     maxBatchReadEntities = config.maxBatchReadEntities;
     maxEntityGroupsPerRpc = config.maxEntityGroupsPerRpc;
+    maxEntityGroupsPerHighRepReadRpc = config.maxEntityGroupsPerHighRepReadRpc;
   }
 
   /**
@@ -210,6 +237,7 @@ public final class DatastoreServiceConfig {
           + maxEntityGroupsPerRpc);
     }
     this.maxEntityGroupsPerRpc = maxEntityGroupsPerRpc;
+    this.maxEntityGroupsPerHighRepReadRpc = maxEntityGroupsPerRpc;
     return this;
   }
 
@@ -228,10 +256,14 @@ public final class DatastoreServiceConfig {
   }
 
   /**
-   * @return The maximum number of entity groups per rpc.  Can be {@code null}.
+   * @return The maximum number of entity groups per rpc.
    */
   public Integer getMaxEntityGroupsPerRpc() {
     return maxEntityGroupsPerRpc;
+  }
+
+  int getMaxEntityGroupsPerHighRepReadRpc() {
+    return maxEntityGroupsPerHighRepReadRpc;
   }
 
   /**

@@ -11,7 +11,6 @@ import static com.google.appengine.api.datastore.ReadPolicy.Consistency.STRONG;
 
 import com.google.appengine.api.datastore.DatastoreAttributes.DatastoreType;
 import com.google.appengine.api.datastore.FutureHelper.CumulativeAggregateFuture;
-import com.google.appengine.api.datastore.Index;
 import com.google.appengine.api.datastore.Index.IndexState;
 import com.google.appengine.api.datastore.Index.Property;
 import com.google.appengine.api.datastore.Query.SortDirection;
@@ -254,7 +253,6 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
     if (keys == null) {
       throw new NullPointerException("keys cannot be null");
     }
-
     if (txn == null && datastoreServiceConfig.getMaxEntityGroupsPerRpc() != null &&
         datastoreServiceConfig.getReadPolicy().getConsistency() == STRONG &&
         getDatastoreType() == HIGH_REPLICATION) {
@@ -341,7 +339,8 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
   }
 
   /**
-   * Executes a batch get by executing multiple rpcs in parallel.
+   * Executes a batch get by executing multiple rpcs in parallel.  Should only
+   * be used for HRD apps.
    *
    * @param keysByEntityGroup A {@link Collection} of {@link List Lists} where
    * all keys in each list belong to the same entity group.
@@ -356,7 +355,7 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
     for (List<Key> keysInGroup : keysByEntityGroup) {
       keysToGet.addAll(keysInGroup);
       numEntityGroups++;
-      if (numEntityGroups == datastoreServiceConfig.getMaxEntityGroupsPerRpc()) {
+      if (numEntityGroups == datastoreServiceConfig.getMaxEntityGroupsPerHighRepReadRpc()) {
         subFutures.add(doBatchGetBySize(null, keysToGet));
         keysToGet = new ArrayList<Key>();
         numEntityGroups = 0;
@@ -860,7 +859,7 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
               answer.put(index, IndexState.BUILDING);
               break;
             default:
-              logger.log(Level.WARNING, "Unrecognized index state for " + index); 
+              logger.log(Level.WARNING, "Unrecognized index state for " + index);
               break;
           }
         }
@@ -870,7 +869,7 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
       @Override
       protected Throwable convertException(Throwable cause) {
         return cause;
-      }      
+      }
     };
   }
 }

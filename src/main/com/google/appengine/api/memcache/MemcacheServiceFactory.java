@@ -44,6 +44,22 @@ public class MemcacheServiceFactory {
     return new MemcacheServiceImpl(namespace);
   }
 
+  /**
+   * Similar to {@link #getMemcacheService()} but returns a handle to an
+   * asynchronous version of the cache service.
+   */
+  public static AsyncMemcacheService getAsyncMemcacheService() {
+    return getAsyncMemcacheService(null);
+  }
+
+  /**
+   * Similar to {@link #getMemcacheService(String)} but returns a handle to an
+   * asynchronous version of the cache service.
+   */
+  public static AsyncMemcacheService getAsyncMemcacheService(String namespace) {
+    return new AsyncMemcacheServiceImpl(namespace);
+  }
+
   private MemcacheServiceFactory() {
   }
 }

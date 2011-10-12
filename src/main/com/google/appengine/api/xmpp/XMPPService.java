@@ -14,21 +14,27 @@ import javax.servlet.http.HttpServletRequest;
  */
 public interface XMPPService {
   /**
+   * @deprecated Use {@link XmppService.sendPresence} with type=PROBE
+   *
    * Given a JID, look up the user's status and return it.
    * @param jabberId JID of the user whose presence should be fetched.
    * @throws IllegalArgumentException if the id is not valid
    */
+  @Deprecated
   Presence getPresence(JID jabberId);
 
   /**
+   * @deprecated Use {@link XmppService.sendPresence} with type=PROBE
+   *
    * Given a JID, look up the user's status and return it. Uses a custom
    * JID as the sender.
    * @param jabberId JID of the user whose presence should be fetched.
    * @param fromJid JID of the chat bot. Can be null.
    * @throws IllegalArgumentException if the id is not valid
    */
+  @Deprecated
   Presence getPresence(JID jabberId, JID fromJid);
-  
+
   /**
    * Given a JID, type and optional show and status value, sends
    * a presence packet.
@@ -53,7 +59,7 @@ public interface XMPPService {
    *                                  are not valid.
    */
   void sendPresence(JID jabberId, PresenceType type, PresenceShow show, String status, JID fromJid);
-  
+
   /**
    * Given a JID, sends a chat invitation.
    * @param jabberId JID of the user to invite.

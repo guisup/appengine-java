@@ -38,7 +38,7 @@ public class LogFetcher {
   private static final char NEWLINE = '\n';
 
   private ServerConnection connection;
-  private Application app;
+  private GenericApplication app;
 
   /**
    * Creates a {@code LogFetcher} for a specific application version's logs.
@@ -46,7 +46,7 @@ public class LogFetcher {
    * @param app the application to fetch logs from
    * @param connection the server connection information to use when fetching
    */
-  public LogFetcher(Application app, ServerConnection connection) {
+  public LogFetcher(GenericApplication app, ServerConnection connection) {
     this.app = app;
     this.connection = connection;
   }

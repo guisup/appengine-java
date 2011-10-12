@@ -319,7 +319,10 @@ public class BackendServersFilter implements Filter {
     if (value != null) {
       return value;
     }
-    return request.getParameter(key);
+    if ("GET".equals(request.getMethod())) {
+      return request.getParameter(key);
+    }
+    return null;
   }
 
   /**

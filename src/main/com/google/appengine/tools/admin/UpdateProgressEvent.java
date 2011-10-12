@@ -13,7 +13,7 @@ public class UpdateProgressEvent {
   private int percentageComplete;
   private Thread updateThread;
 
-  UpdateProgressEvent(Thread updateThread, String message, int percentageComplete) {
+  public UpdateProgressEvent(Thread updateThread, String message, int percentageComplete) {
     this.message = message;
     this.percentageComplete = percentageComplete;
     this.updateThread = updateThread;

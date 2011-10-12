@@ -128,6 +128,26 @@ class FileServiceImpl implements FileService {
     return channel;
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public RecordReadChannel openRecordReadChannel(AppEngineFile file, boolean lock)
+      throws FileNotFoundException, LockException, IOException {
+    RecordReadChannel channel = new RecordReadChannelImpl(openReadChannel(file, lock));
+    return channel;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public RecordWriteChannel openRecordWriteChannel(AppEngineFile file, boolean lock)
+      throws FileNotFoundException, LockException, IOException {
+    RecordWriteChannel channel = new RecordWriteChannelImpl(openWriteChannel(file, lock));
+    return channel;
+  }
+
   public void delete(AppEngineFile file) throws IOException {
     delete(file.getFullPath());
   }

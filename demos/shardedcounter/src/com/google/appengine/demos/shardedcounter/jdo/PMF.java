@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package com.google.appengine.demos.shardedcounter;
+package com.google.appengine.demos.shardedcounter.jdo;
 
 import javax.jdo.JDOHelper;
 import javax.jdo.PersistenceManagerFactory;

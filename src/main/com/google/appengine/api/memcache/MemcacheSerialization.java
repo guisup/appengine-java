@@ -38,15 +38,17 @@ public class MemcacheSerialization {
     BYTE,
     SHORT;
 
+    private static final Flag[] VALUES = Flag.values();
+
     /**
      * While the enum is convenient, the implementation wants {@code int}s...
      * this factory converts {@code int} value to Flag value.
      */
     public static Flag fromInt(int i) {
-      if (i < 0 || i >= Flag.values().length) {
+      if (i < 0 || i >= VALUES.length) {
         throw new IllegalArgumentException();
       }
-      return Flag.values()[i];
+      return VALUES[i];
     }
   }
 

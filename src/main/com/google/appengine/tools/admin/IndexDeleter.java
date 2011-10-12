@@ -19,7 +19,7 @@ import java.util.List;
 public class IndexDeleter {
 
   private final ServerConnection connection;
-  private final Application application;
+  private final GenericApplication application;
   private final PrintWriter errorWriter;
   private final ConfirmationCallback<DeleteIndexAction> confirmationCallback;
   private final UpdateListener updateListener;
@@ -33,7 +33,7 @@ public class IndexDeleter {
    * @param listener an {@code UpdateListener} used to provide progress reports
    *        during the delete operation
    */
-  IndexDeleter(ServerConnection conn, Application app,
+  IndexDeleter(ServerConnection conn, GenericApplication app,
       ConfirmationCallback<DeleteIndexAction> callback, PrintWriter errorWriter,
       UpdateListener listener) {
     this.connection = conn;

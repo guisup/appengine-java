@@ -12,6 +12,7 @@ import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 
 import javax.activation.DataSource;
+import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.mail.internet.MimeMultipart;
 import javax.mail.BodyPart;
@@ -26,11 +27,26 @@ import javax.mail.internet.ContentType;
  *
  */
 public class HttpRequestParser {
-
+  /**
+   * Parse input stream of the given request into a MimeMultipart object.
+   *
+   * @params req The HttpServletRequest whose POST data should be parsed.
+   *
+   * @return A MimeMultipart object representing the POST data.
+   *
+   * @throws IOException if the input stream cannot be read.
+   * @throws MessagingException if the input stream cannot be parsed.
+   * @throws IllegalStateException if the request's input stream has already been
+   *     read (eg. by calling getReader() or getInputStream()).
+   */
   protected static MimeMultipart parseMultipartRequest(HttpServletRequest req)
       throws IOException, MessagingException {
     ByteArrayOutputStream baos = new ByteArrayOutputStream();
-    ByteStreams.copy(req.getInputStream(), baos);
+    ServletInputStream inputStream = req.getInputStream();
+    ByteStreams.copy(inputStream, baos);
+    if (baos.size() == 0) {
+      throw new IllegalStateException("Input stream already read, or empty.");
+    }
 
     return new MimeMultipart(new StaticDataSource(req.getContentType(), baos.toByteArray()));
   }

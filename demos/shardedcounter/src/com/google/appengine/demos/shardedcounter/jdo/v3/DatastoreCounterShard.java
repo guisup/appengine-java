@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package com.google.appengine.demos.shardedcounter.v1;
+package com.google.appengine.demos.shardedcounter.jdo.v3;
 
 import javax.jdo.annotations.IdGeneratorStrategy;
 import javax.jdo.annotations.IdentityType;
@@ -22,28 +22,48 @@ import javax.jdo.annotations.Persistent;
 import javax.jdo.annotations.PrimaryKey;
 
 /**
- * A JDO object representing a single shard belonging to the counter.
+ * One shard belonging to the named counter.
+ *
+ * An individual shard is written to infrequently to allow the counter in
+ * aggregate to be incremented rapidly.
  *
  */
 @PersistenceCapable(identityType = IdentityType.APPLICATION)
-public class LimitedCounterShard {
+public class DatastoreCounterShard {
   @PrimaryKey
   @Persistent(valueStrategy = IdGeneratorStrategy.IDENTITY)
   private Long id;
 
   @Persistent
+  private Integer shardNumber;
+
+  @Persistent
+  private String counterName;
+
+  @Persistent
   private Integer count;
 
-  public LimitedCounterShard() {
-    this.count = new Integer(0);
+  public DatastoreCounterShard(String counterName, int shardNumber) {
+    this(counterName, shardNumber, 0);
   }
 
-  public LimitedCounterShard(Integer count) {
-    this.count = count;
+  public DatastoreCounterShard(String counterName, int shardNumber,
+      int count) {
+    this.counterName = counterName;
+    this.shardNumber = new Integer(shardNumber);
+    this.count = new Integer(count);
   }
 
   public Long getId() {
     return id;
+  }
+
+  public String getCounterName() {
+    return counterName;
+  }
+
+  public Integer getShardNumber() {
+    return shardNumber;
   }
 
   public Integer getCount() {
@@ -52,5 +72,9 @@ public class LimitedCounterShard {
 
   public void setCount(Integer count) {
     this.count = count;
+  }
+
+  public void increment(int amount) {
+    count = new Integer(count.intValue() + amount);
   }
 }

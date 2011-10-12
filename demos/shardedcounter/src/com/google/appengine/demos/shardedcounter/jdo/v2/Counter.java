@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package com.google.appengine.demos.shardedcounter.v2;
+package com.google.appengine.demos.shardedcounter.jdo.v2;
 
 import javax.jdo.annotations.IdGeneratorStrategy;
 import javax.jdo.annotations.IdentityType;
@@ -22,35 +22,29 @@ import javax.jdo.annotations.Persistent;
 import javax.jdo.annotations.PrimaryKey;
 
 /**
- * One shard belonging to the named counter.
- *
- * An individual shard is written to infrequently to allow the counter in
- * aggregate to be incremented rapidly.
+ * Represents a counter in the datastore and stores the number of shards.
  *
  */
 @PersistenceCapable(identityType = IdentityType.APPLICATION)
-public class CounterShard {
+public class Counter {
   @PrimaryKey
   @Persistent(valueStrategy = IdGeneratorStrategy.IDENTITY)
   private Long id;
 
   @Persistent
-  private Integer shardNumber;
-
-  @Persistent
   private String counterName;
 
   @Persistent
-  private Integer count;
+  private Integer numShards;
 
-  public CounterShard(String counterName, int shardNumber) {
-    this(counterName, shardNumber, 0);
+  public Counter(String counterName) {
+    this.counterName = counterName;
+    this.numShards = new Integer(0);
   }
 
-  public CounterShard(String counterName, int shardNumber, int count) {
+  public Counter(String counterName, Integer numShards) {
     this.counterName = counterName;
-    this.shardNumber = new Integer(shardNumber);
-    this.count = new Integer(count);
+    this.numShards = numShards;
   }
 
   public Long getId() {
@@ -61,19 +55,11 @@ public class CounterShard {
     return counterName;
   }
 
-  public Integer getShardNumber() {
-    return shardNumber;
+  public Integer getShardCount() {
+    return numShards;
   }
 
-  public Integer getCount() {
-    return count;
-  }
-
-  public void setCount(Integer count) {
-    this.count = count;
-  }
-
-  public void increment(int amount) {
-    count = new Integer(count.intValue() + amount);
+  public void setShardCount(int count) {
+    this.numShards = new Integer(count);
   }
 }

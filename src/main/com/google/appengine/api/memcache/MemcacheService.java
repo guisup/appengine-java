@@ -9,7 +9,7 @@ import java.util.Set;
 
 /**
  * The Java API for the App Engine Memcache service.  This offers a fast
- * distrubted cache for commonly-used data.  The cache is limited both in
+ * distributed cache for commonly-used data.  The cache is limited both in
  * duration and also in total space, so objects stored in it may be discarded
  * at any time.
  * <p>
@@ -33,7 +33,7 @@ import java.util.Set;
  * consult the method documentation.
  *
  */
-public interface MemcacheService {
+public interface MemcacheService extends BaseMemcacheService {
 
   /**
    * Cache replacement strategies for {@link MemcacheService#put} operations,
@@ -70,19 +70,7 @@ public interface MemcacheService {
   }
 
   /**
-   * Method returns non-null value if the MemcacheService overrides the
-   * default namespace in API calls. Default namespace is the one returned
-   * by {@link com.google.appengine.api.NamespaceManager#get()}.
-   *
-   * @return {@code null} if the MemcacheService uses default namespace in
-   * API calls. Otherwise it returns {@code namespace} which is overrides
-   * default namespace on the API calls.
-   */
-  String getNamespace();
-
-  /**
-   * @deprecated use {@link
-   * com.google.appengine.api.memcache.MemcacheServiceFactory#getMemcacheService(String)}
+   * @deprecated use {@link MemcacheServiceFactory#getMemcacheService(String)}
    * instead.
    */
   @Deprecated
@@ -95,8 +83,7 @@ public interface MemcacheService {
    *
    * @param key the key object used to store the cache entry
    * @return the value object previously stored, or {@code null}
-   * @throws IllegalArgumentException if the type of the key cannot be
-   *    supported.
+   * @throws IllegalArgumentException if the key cannot be serialized.
    * @throws InvalidValueException for any error in reconstituting the cache
    *    value.
    */
@@ -107,9 +94,12 @@ public interface MemcacheService {
    * to perform a {@link #putIfUntouched} operation.
    *
    * @param key the key object used to store the cache entry
-   * @return an {@link #IdentifiableValue} object that wraps the
+   * @return an {@link IdentifiableValue} object that wraps the
    * value object previously stored.  {@code null} is returned if {@code key}
    * is not present in the cache.
+   * @throws IllegalArgumentException if the key cannot be serialized.
+   * @throws InvalidValueException for any error in reconstituting the cache
+   *    value.
    */
   public IdentifiableValue getIdentifiable(Object key);
 
@@ -178,6 +168,7 @@ public interface MemcacheService {
    *    because of the {@code policy}.
    * @throws IllegalArgumentException if the key or value type can't
    *    be stored as a cache item.  They should be {@link Serializable}.
+   * @throws MemcacheServiceException if server responds with an error.
    */
   boolean put(Object key, Object value, Expiration expires,
       SetPolicy policy);
@@ -191,6 +182,7 @@ public interface MemcacheService {
    * @param expires time-based {@link Expiration}, or {@code null} for none
    * @throws IllegalArgumentException if the key or value type can't
    *    be stored as a cache item.  They should be {@link Serializable}.
+   * @throws MemcacheServiceException if server responds with an error.
    */
   void put(Object key, Object value, Expiration expires);
 
@@ -202,6 +194,7 @@ public interface MemcacheService {
    * @param value value for the new entry
    * @throws IllegalArgumentException if the key or value type can't
    *    be stored as a cache item.  They should be {@link Serializable}.
+   * @throws MemcacheServiceException if server respond with an error.
    */
   void put(Object key, Object value);
 
@@ -218,14 +211,16 @@ public interface MemcacheService {
    *    {@code policy} regarding pre-existing entries.
    * @throws IllegalArgumentException if the key or value type can't
    *    be stored as a cache item.  They should be {@link Serializable}.
+   * @throws MemcacheServiceException if server respond with an error for any
+   *    of the given values
    */
   <T> Set<T> putAll(Map<T, ?> values, Expiration expires,
       SetPolicy policy);
 
   /**
    * Atomically, store {@code newValue} only if no other value has been stored
-   * since {@code oldValue} was retreived. {@code oldValue} is an
-   * {@link #IdentifiableValue} that was returned from a previous call to
+   * since {@code oldValue} was retrieved. {@code oldValue} is an
+   * {@link IdentifiableValue} that was returned from a previous call to
    * {@link #getIdentifiable}.
    * <p>
    * If another value in the cache for {@code key} has been stored, or if
@@ -242,12 +237,13 @@ public interface MemcacheService {
    * @param key key of the entry
    * @param oldValue identifier for the value to compare against newValue
    * @param newValue new value to store if oldValue is still there
-   * @param expires an {@link Expiration} objct to set time-based expiration.
+   * @param expires an {@link Expiration} object to set time-based expiration.
    *    {@code null} may be used to indicate no specific expiration.
    * @return {@code true} if {@code newValue} was stored, {@code false} otherwise.
    * @throws IllegalArgumentException if the key or value type can't be stored.
    *    They should be {@link Serializable}.  Also throws IllegalArgumentException
    *    if oldValue is null.
+   * @throws MemcacheServiceException if server respond with an error.
    */
   boolean putIfUntouched(Object key, IdentifiableValue oldValue,
                          Object newValue, Expiration expires);
@@ -264,6 +260,7 @@ public interface MemcacheService {
    * @throws IllegalArgumentException if the key or value type can't be stored.
    *    They should be {@link Serializable}.  Also throws IllegalArgumentException
    *    if oldValue is null.
+   * @throws MemcacheServiceException if server respond with an error.
    */
   boolean putIfUntouched(Object key, IdentifiableValue oldValue, Object newValue);
 
@@ -276,6 +273,8 @@ public interface MemcacheService {
    *    time-based expiration
    * @throws IllegalArgumentException if the key or value type can't
    *    be stored as a cache item.  They should be {@link Serializable}.
+   * @throws MemcacheServiceException if server respond with an error for any
+   *    of the given values
    */
   void putAll(Map<?, ?> values, Expiration expires);
 
@@ -286,6 +285,8 @@ public interface MemcacheService {
    * @param values key/value mappings for new entries to add to the cache
    * @throws IllegalArgumentException if the key or value type can't
    *    be stored as a cache item.  They should be {@link Serializable}.
+   * @throws MemcacheServiceException if server respond with an error for any
+   *    of the given values
    */
   void putAll(Map<?, ?> values);
 
@@ -319,7 +320,8 @@ public interface MemcacheService {
    *
    * @param keys a collection of keys for entries to delete
    * @return the Set of keys deleted.  Any keys in {@code keys} but not in the
-   *    returned set were not found in the cache.
+   *    returned set were not found in the cache. The iteration order of the
+   *    returned set matches the iteration order of the provided {@code keys}.
    * @throws IllegalArgumentException if a key can't be used in the cache
    *    because it is not {@link Serializable}.
    */
@@ -328,10 +330,12 @@ public interface MemcacheService {
   /**
    * Batch version of {@link #delete(Object, long)}.
    *
-   * @param keys the keys to be deleted
+   * @param keys a collection of keys for entries to delete
    * @param millisNoReAdd time during which calls to put using
    *    {@link SetPolicy#ADD_ONLY_IF_NOT_PRESENT} should be denied.
-   * @return the set of keys deleted.
+   * @return the Set of keys deleted.  Any keys in {@code keys} but not in the
+   *    returned set were not found in the cache. The iteration order of the
+   *    returned set matches the iteration order of the provided {@code keys}.
    * @throws IllegalArgumentException if the key can't be used in the cache
    *    because it is not {@link Serializable}.
    */
@@ -441,20 +445,4 @@ public interface MemcacheService {
    */
   Stats getStatistics();
 
-  /**
-   * Registers a new {@code ErrorHandler}.  The {@code handler} is used to field
-   * any errors which aren't necessarily the application programmer's fault:
-   * things like network timeouts, for example.  Value correctness and usage
-   * errors {@link IllegalArgumentException}, {@link InvalidValueException} are
-   * still thrown normally.
-   *
-   * @param handler the new {@code ErrorHandler} to use.  May not be
-   * {@code null}.
-   */
-  void setErrorHandler(ErrorHandler handler);
-
-  /**
-   * Fetches the current error handler.
-   */
-  ErrorHandler getErrorHandler();
 }

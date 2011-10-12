@@ -10,8 +10,11 @@ import java.util.logging.Logger;
  *
  */
 public class LogAndContinueErrorHandler implements ErrorHandler {
+
+  private static final Logger logger =
+      Logger.getLogger(LogAndContinueErrorHandler.class.getName());
+
   private final Level level;
-  private final Logger logger;
 
   /**
    * Constructor for a given logging level.
@@ -20,7 +23,6 @@ public class LogAndContinueErrorHandler implements ErrorHandler {
    */
   public LogAndContinueErrorHandler(Level level) {
     this.level = level;
-    logger = Logger.getLogger(LogAndContinueErrorHandler.class.getName());
   }
 
   /**
@@ -29,6 +31,7 @@ public class LogAndContinueErrorHandler implements ErrorHandler {
    *
    * @param thrown the classpath error exception
    */
+  @Override
   public void handleDeserializationError(InvalidValueException thrown) {
     logger.log(level, "Deserialization error in memcache", thrown);
   }
@@ -39,6 +42,7 @@ public class LogAndContinueErrorHandler implements ErrorHandler {
    *
    * @param thrown the service error exception
    */
+  @Override
   public void handleServiceError(MemcacheServiceException thrown) {
     logger.log(level, "Service error in memcache", thrown);
   }

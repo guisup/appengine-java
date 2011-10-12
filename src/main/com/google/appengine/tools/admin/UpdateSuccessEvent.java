@@ -11,7 +11,7 @@ package com.google.appengine.tools.admin;
 public class UpdateSuccessEvent {
   private final String details;
 
-  UpdateSuccessEvent(String details) {
+  public UpdateSuccessEvent(String details) {
     this.details = details;
   }
 

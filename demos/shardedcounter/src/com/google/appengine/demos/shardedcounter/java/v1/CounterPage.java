@@ -1,4 +1,4 @@
-/* Copyright (c) 2009 Google Inc.
+/* Copyright (c) 2011 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
  * limitations under the License.
  */
 
-package com.google.appengine.demos.shardedcounter.v1;
+package com.google.appengine.demos.shardedcounter.java.v1;
 
 import java.io.IOException;
 import javax.servlet.http.HttpServlet;
@@ -22,29 +22,32 @@ import javax.servlet.http.HttpServletResponse;
 
 /**
  * Servlet provides the HTML for the counter web page.
- *
  */
 public class CounterPage extends HttpServlet {
+  @Override
   public void doGet(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
     resp.getWriter().println("<html>");
     resp.getWriter().println("  <body>");
 
-    Counter counter = new Counter();
+    ShardedCounter counter = new ShardedCounter();
 
-    resp.getWriter().println("  <p>Current count: " + counter.getCount()
-        + "</p>");
-
-    resp.getWriter().println("<form action=\"/v1\" method=\"post\">");
     resp.getWriter().println(
-        "  <div><input type=\"submit\" value=\"+1\" /></div>");
-    resp.getWriter().println("</form></body></html>");
+        "  <p>Current count: " + counter.getCount() + "</p>");
+
+    resp.getWriter().println("<form action='.' method='post'>");
+    resp.getWriter().println("  <div><input type='submit' value='+1' /></div>");
+    resp.getWriter().println("</form>");
+
+    resp.getWriter().println("  </body>");
+    resp.getWriter().println("</html>");
   }
 
+  @Override
   public void doPost(HttpServletRequest req, HttpServletResponse resp)
       throws IOException {
-    Counter counter = new Counter();
-    counter.addShard();
+    ShardedCounter counter = new ShardedCounter();
+    counter.increment();
     doGet(req, resp);
   }
 }
