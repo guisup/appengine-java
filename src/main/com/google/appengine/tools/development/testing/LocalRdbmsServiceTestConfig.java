@@ -24,17 +24,18 @@ public class LocalRdbmsServiceTestConfig implements LocalServiceTestConfig {
   private String driverUrl = "jdbc:hsqldb:mem:%s";
   private LocalRdbmsService.ServerType serverType = LocalRdbmsService.ServerType.LOCAL;
   private String extraDriverProperties = "";
-  private Class<? extends SqlClientFactory> remoteClientFactory = null;
+  private Class<? extends SqlClientFactory> remoteClientFactory;
 
   @Override
   public void setUp() {
     ApiProxyLocal proxy = LocalServiceTestHelper.getApiProxyLocal();
     proxy.setProperty(LocalRdbmsProperties.DRIVER_PROPERTY, driverClass);
-    proxy.setProperty(LocalRdbmsProperties.JDBC_CONNECTION_URL_STRING, driverUrl);
+    proxy.setProperty(LocalRdbmsProperties.JDBC_CONNECTION_URL_STRING_PROPERTY, driverUrl);
     proxy.setProperty(LocalRdbmsService.SERVER_TYPE, serverType.flagValue());
-    proxy.setProperty(LocalRdbmsProperties.EXTRA_DRIVER_PROPERTIES, extraDriverProperties);
+    proxy.setProperty(LocalRdbmsProperties.EXTRA_DRIVER_PROPERTIES_PROPERTY, extraDriverProperties);
     if (remoteClientFactory != null) {
-      proxy.setProperty(LocalRdbmsProperties.REMOTE_CLIENT_FACTORY, remoteClientFactory.getName());
+      proxy.setProperty(LocalRdbmsProperties.HOSTED_CLIENT_FACTORY_PROPERTY,
+          remoteClientFactory.getName());
     }
   }
 
@@ -115,6 +116,12 @@ public class LocalRdbmsServiceTestConfig implements LocalServiceTestConfig {
     return this;
   }
 
+  /**
+   * Sets the remote client factory class.
+   *
+   * @param remoteClientFactory the SqlClientFactory implementation.
+   * @return {@code this} (for chaining)
+   */
   public LocalRdbmsServiceTestConfig setRemoteClientFactory(
       Class<? extends SqlClientFactory> remoteClientFactory) {
     this.remoteClientFactory = remoteClientFactory;

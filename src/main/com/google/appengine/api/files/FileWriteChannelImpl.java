@@ -25,6 +25,9 @@ class FileWriteChannelImpl implements FileWriteChannel {
     if (null == file) {
       throw new NullPointerException("file is null");
     }
+    if (!f.isWritable()) {
+      throw new IllegalArgumentException("file is not writable");
+    }
   }
 
   private void checkOpen() throws ClosedChannelException {

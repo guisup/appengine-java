@@ -16,17 +16,20 @@ import java.util.Set;
  * Note that {@code null} is a legal value to store in the cache, or to use
  * as a cache key.  Although the API is written for {@link Object}s, both
  * keys and values should be {@link Serializable}, although future versions
- * may someday accept specific types of non-{@code Serializable} {@code Objects}.
+ * may someday accept specific types of non-{@code Serializable}
+ * {@code Objects}.
  * <p>
- * The values returned from this API are mutable copies from the cache; altering
- * them has no effect upon the cached value itself until assigned with one of
- * the {@link #put(Object, Object) put} methods.  Likewise, the methods returning
- * collections return mutable collections, but changes do not affect the cache.
+ * The values returned from this API are mutable copies from the cache;
+ * altering them has no effect upon the cached value itself until assigned with
+ * one of the {@link #put(Object, Object) put} methods.  Likewise, the methods
+ * returning collections return mutable collections, but changes do not affect
+ * the cache.
  * <p>
- * Methods that operate on single entries, including {@link #increment}, are atomic,
- * while batch methods such as {@link #getAll}, {@link #putAll}, and {@link #deleteAll}
- * do not provide atomicity.  Arbitrary operations on single entries can be performed
- * atomically by using {@link #putIfUntouched} in combination with {@link #getIdentifiable}.
+ * Methods that operate on single entries, including {@link #increment}, are
+ * atomic, while batch methods such as {@link #getAll}, {@link #putAll}, and
+ * {@link #deleteAll} do not provide atomicity.  Arbitrary operations on single
+ * entries can be performed atomically by using {@link #putIfUntouched} in
+ * combination with {@link #getIdentifiable}.
  *
  * <p>
  * {@link #increment Increment} has a number of caveats to its use; please
@@ -70,6 +73,42 @@ public interface MemcacheService extends BaseMemcacheService {
   }
 
   /**
+   * A holder for compare and set values.
+   * {@link Expiration expiration} and {@code newValue} can be null.
+   */
+  final class CasValues {
+
+    private final IdentifiableValue oldValue;
+    private final Object newValue;
+    private final Expiration expiration;
+
+    public CasValues(IdentifiableValue oldValue, Object newValue) {
+      this(oldValue, newValue, null);
+    }
+
+    public CasValues(IdentifiableValue oldValue, Object newValue, Expiration expiration) {
+      if (oldValue == null) {
+        throw new IllegalArgumentException("oldValue can not be null");
+      }
+      this.oldValue = oldValue;
+      this.newValue = newValue;
+      this.expiration = expiration;
+    }
+
+    public IdentifiableValue getOldValue() {
+      return oldValue;
+    }
+
+    public Object getNewValue() {
+      return newValue;
+    }
+
+    public Expiration getExipration() {
+      return expiration;
+    }
+  }
+
+  /**
    * @deprecated use {@link MemcacheServiceFactory#getMemcacheService(String)}
    * instead.
    */
@@ -77,13 +116,14 @@ public interface MemcacheService extends BaseMemcacheService {
   void setNamespace(String newNamespace);
 
   /**
-   * Fetches a previously-stored value, or {@code null} if unset.  Since
-   * {@code null} might be the set value in some cases, so we also have
-   * {@link MemcacheService#contains(Object)} which returns {@code boolean}.
+   * Fetches a previously-stored value, or {@code null} if unset.  To
+   * distinguish a {@code null} value from unset use
+   * {@link MemcacheService#contains(Object)}.
    *
    * @param key the key object used to store the cache entry
    * @return the value object previously stored, or {@code null}
-   * @throws IllegalArgumentException if the key cannot be serialized.
+   * @throws IllegalArgumentException if {@code key} is not
+   *    {@link Serializable} and is not {@code null}
    * @throws InvalidValueException for any error in reconstituting the cache
    *    value.
    */
@@ -97,11 +137,27 @@ public interface MemcacheService extends BaseMemcacheService {
    * @return an {@link IdentifiableValue} object that wraps the
    * value object previously stored.  {@code null} is returned if {@code key}
    * is not present in the cache.
-   * @throws IllegalArgumentException if the key cannot be serialized.
+   * @throws IllegalArgumentException if {@code key} is not
+   *    {@link Serializable} and is not {@code null}
    * @throws InvalidValueException for any error in reconstituting the cache
-   *    value.
+   *    value
    */
-  public IdentifiableValue getIdentifiable(Object key);
+  IdentifiableValue getIdentifiable(Object key);
+
+  /**
+   * Performs a getIdentifiable for multiple keys at once.
+   * This is more efficient than multiple separate calls to
+   * {@link #getIdentifiable(Object)}.
+   *
+   * @param keys a collection of keys for which values should be retrieved
+   * @return a mapping from keys to values of any entries found. If a requested
+   *     key is not found in the cache, the key will not be in the returned Map.
+   * @throws IllegalArgumentException if any element of {@code keys} is not
+   *    {@link Serializable} and is not {@code null}
+   * @throws InvalidValueException for any error in deserializing the cache
+   *    value
+   */
+  <T> Map<T, IdentifiableValue> getIdentifiables(Collection<T> keys);
 
   /**
    * Tests whether a given value is in cache, even if its value is {@code null}.
@@ -134,7 +190,8 @@ public interface MemcacheService extends BaseMemcacheService {
    *
    * @param key the key object used to store the cache entry
    * @return {@code true} if the cache contains an entry for the key
-   * @throws IllegalArgumentException if the key cannot be serialized
+   * @throws IllegalArgumentException if {@code key} is not
+   *    {@link Serializable} and is not {@code null}
    */
   boolean contains(Object key);
 
@@ -145,12 +202,13 @@ public interface MemcacheService extends BaseMemcacheService {
    * because the return will not include mappings for keys not found.
    *
    * @param keys a collection of keys for which values should be retrieved
-   * @return a mapping from keys to values of any entries found.  If a requested
-   *     key is not found in the cache, the key will not be in the returned Map.
-   * @throws IllegalArgumentException if an element of {@code keys} cannot be
-   *    used as a cache key.  They should be {@link Serializable}.
+   * @return a mapping from keys to values of any entries found.
+   *    If a requested key is not found in the cache, the key will not be in
+   *    the returned Map.
+   * @throws IllegalArgumentException if any element of {@code keys} is not
+   *    {@link Serializable} and is not {@code null}
    * @throws InvalidValueException for any error in deserializing the cache
-   *    value.
+   *    value
    */
   <T> Map<T, Object> getAll(Collection<T> keys);
 
@@ -165,36 +223,35 @@ public interface MemcacheService extends BaseMemcacheService {
    * @param policy Requests particular handling regarding pre-existing entries
    *    under the same key.  This parameter must not be {@code null}.
    * @return {@code true} if a new entry was created, {@code false} if not
-   *    because of the {@code policy}.
-   * @throws IllegalArgumentException if the key or value type can't
-   *    be stored as a cache item.  They should be {@link Serializable}.
-   * @throws MemcacheServiceException if server responds with an error.
+   *    because of the {@code policy}
+   * @throws IllegalArgumentException if {@code key} or {@code value} is not
+   *    {@link Serializable} and is not {@code null}
+   * @throws MemcacheServiceException if server responds with an error
    */
-  boolean put(Object key, Object value, Expiration expires,
-      SetPolicy policy);
+  boolean put(Object key, Object value, Expiration expires, SetPolicy policy);
 
   /**
-   * Convenience put, equivalent to {@link #put(Object,Object,Expiration,SetPolicy)
-   * put(key, value, expiration, SetPolicy.SET_ALWAYS)}.
+   * Convenience put, equivalent to {@link #put(Object,Object,Expiration,
+   * SetPolicy) put(key, value, expiration, SetPolicy.SET_ALWAYS)}.
    *
    * @param key key of the new entry
    * @param value value for the new entry
    * @param expires time-based {@link Expiration}, or {@code null} for none
-   * @throws IllegalArgumentException if the key or value type can't
-   *    be stored as a cache item.  They should be {@link Serializable}.
-   * @throws MemcacheServiceException if server responds with an error.
+   * @throws IllegalArgumentException if {@code key} or {@code value} is not
+   *    {@link Serializable} and is not {@code null}
+   * @throws MemcacheServiceException if server responds with an error
    */
   void put(Object key, Object value, Expiration expires);
 
   /**
-   * A convenience shortcut, equivalent to {@link #put(Object,Object,Expiration,SetPolicy)
-   * put(key, value, null, SetPolicy.SET_ALWAYS)}.
+   * A convenience shortcut, equivalent to {@link #put(Object,Object,
+   * Expiration,SetPolicy) put(key, value, null, SetPolicy.SET_ALWAYS)}.
    *
    * @param key key of the new entry
    * @param value value for the new entry
-   * @throws IllegalArgumentException if the key or value type can't
-   *    be stored as a cache item.  They should be {@link Serializable}.
-   * @throws MemcacheServiceException if server respond with an error.
+   * @throws IllegalArgumentException if {@code key} or {@code value} is not
+   *    {@link Serializable} and is not {@code null}
+   * @throws MemcacheServiceException if server responds with an error
    */
   void put(Object key, Object value);
 
@@ -209,13 +266,38 @@ public interface MemcacheService extends BaseMemcacheService {
    * @return the set of keys for which entries were created.  Keys in
    *    {@code values} may not be in the returned set because of the
    *    {@code policy} regarding pre-existing entries.
-   * @throws IllegalArgumentException if the key or value type can't
-   *    be stored as a cache item.  They should be {@link Serializable}.
-   * @throws MemcacheServiceException if server respond with an error for any
+   * @throws IllegalArgumentException if any of the keys or values are not
+   *    {@link Serializable} and are not {@code null}
+   * @throws MemcacheServiceException if server responds with an error for any
    *    of the given values
    */
-  <T> Set<T> putAll(Map<T, ?> values, Expiration expires,
-      SetPolicy policy);
+  <T> Set<T> putAll(Map<T, ?> values, Expiration expires, SetPolicy policy);
+
+  /**
+   * Convenience multi-put, equivalent to {@link #putAll(Map,Expiration,
+   * SetPolicy) putAll(values, expires, SetPolicy.SET_ALWAYS)}.
+   *
+   * @param values key/value mappings to add to the cache
+   * @param expires expiration time for the new values, or {@code null} for no
+   *    time-based expiration
+   * @throws IllegalArgumentException if any of the keys or values are not
+   *    {@link Serializable} and are not {@code null}
+   * @throws MemcacheServiceException if server responds with an error for any
+   *    of the given values
+   */
+  void putAll(Map<?, ?> values, Expiration expires);
+
+  /**
+   * Convenience multi-put, equivalent to {@link #putAll(Map,Expiration,
+   * SetPolicy) putAll(values, expires, SetPolicy.SET_ALWAYS)}.
+   *
+   * @param values key/value mappings for new entries to add to the cache
+   * @throws IllegalArgumentException if any of the keys or values are not
+   *    {@link Serializable} and are not {@code null}
+   * @throws MemcacheServiceException if server responds with an error for any
+   *    of the given values
+   */
+  void putAll(Map<?, ?> values);
 
   /**
    * Atomically, store {@code newValue} only if no other value has been stored
@@ -227,91 +309,103 @@ public interface MemcacheService extends BaseMemcacheService {
    * this cache entry has been evicted, then nothing is stored by this call and
    * {@code false} is returned.
    * <p>
-   * Note that storing the same value again <i>does</i> count as a "touch" for this
-   * purpose.
+   * Note that storing the same value again <i>does</i> count as a "touch" for
+   * this purpose.
    * <p>
-   * Using {@link #getIdentifiable} and {@link #putIfUntouched} together constitutes
-   * an operation that either succeeds atomically or fails due to concurrency
-   * (or eviction), in which case the entire operation can be retried by the application.
+   * Using {@link #getIdentifiable} and {@link #putIfUntouched} together
+   * constitutes an operation that either succeeds atomically or fails due to
+   * concurrency (or eviction), in which case the entire operation can be
+   * retried by the application.
    *
    * @param key key of the entry
    * @param oldValue identifier for the value to compare against newValue
    * @param newValue new value to store if oldValue is still there
    * @param expires an {@link Expiration} object to set time-based expiration.
    *    {@code null} may be used to indicate no specific expiration.
-   * @return {@code true} if {@code newValue} was stored, {@code false} otherwise.
-   * @throws IllegalArgumentException if the key or value type can't be stored.
-   *    They should be {@link Serializable}.  Also throws IllegalArgumentException
-   *    if oldValue is null.
-   * @throws MemcacheServiceException if server respond with an error.
+   * @return {@code true} if {@code newValue} was stored,
+   *    {@code false} otherwise
+   * @throws IllegalArgumentException if {@code key} or {@code newValue} is
+   *    not {@link Serializable} and is not {@code null}. Also throws
+   *    IllegalArgumentException if {@code oldValue} is {@code null}.
+   * @throws MemcacheServiceException if server responds with an error
    */
   boolean putIfUntouched(Object key, IdentifiableValue oldValue,
                          Object newValue, Expiration expires);
 
   /**
-   * Convenience shortcut, equivalent to {@link
-   * #putIfUntouched(Object,IdentifiableValue,Object,Expiration) put(key, oldValue, newValue,
-   * null)}.
+   * Convenience shortcut, equivalent to {@link #putIfUntouched(Object,
+   * IdentifiableValue,Object,Expiration) put(key, oldValue, newValue, null)}.
    *
    * @param key key of the entry
    * @param oldValue identifier for the value to compare against newValue
    * @param newValue new value to store if oldValue is still there
-   * @return {@code true} if {@code newValue} was stored, {@code false} otherwise.
-   * @throws IllegalArgumentException if the key or value type can't be stored.
-   *    They should be {@link Serializable}.  Also throws IllegalArgumentException
-   *    if oldValue is null.
-   * @throws MemcacheServiceException if server respond with an error.
+   * @return {@code true} if {@code newValue} was stored,
+   *    {@code false} otherwise.
+   * @throws IllegalArgumentException if {@code key} or {@code newValue} is
+   *    not {@link Serializable} and is not {@code null}. Also throws
+   *    IllegalArgumentException if {@code oldValue} is {@code null}.
+   * @throws MemcacheServiceException if server responds with an error
    */
   boolean putIfUntouched(Object key, IdentifiableValue oldValue, Object newValue);
 
   /**
-   * Convenience multi-put, equivalent to {@link #putAll(Map, Expiration, SetPolicy)
-   * putAll(values, expires, SetPolicy.SET_ALWAYS)}.
+   * Convenience shortcut, equivalent to
+   * {@link #putIfUntouched(Map, Expiration) putIfUntouched(values, null)}.
    *
-   * @param values key/value mappings to add to the cache
-   * @param expires expiration time for the new values, or {@code null} for no
-   *    time-based expiration
-   * @throws IllegalArgumentException if the key or value type can't
-   *    be stored as a cache item.  They should be {@link Serializable}.
-   * @throws MemcacheServiceException if server respond with an error for any
-   *    of the given values
+   * @param values the key/values mappings to compare and swap
+   * @return the set of keys for which the new value was stored.
+   * @throws IllegalArgumentException if any of the keys are not
+   *    {@link Serializable} or any of the values are not {@link Serializable}
+   *    or {@code null}
+   * @throws IllegalArgumentException If any of the keys or newValues are not
+   *    {@link Serializable} and are not {@code null}. Also throws
+   *    IllegalArgumentException if {@code values} has any nulls.
+   * @throws MemcacheServiceException if server responds with an error for any
+   *    of the given {@code values}
    */
-  void putAll(Map<?, ?> values, Expiration expires);
+  <T> Set<T> putIfUntouched(Map<T, CasValues> values);
 
   /**
-   * Convenience multi-put, equivalent to {@link #putAll(Map, Expiration, SetPolicy)
-   * putAll(values, expires, SetPolicy.SET_ALWAYS)}.
+   * A batch-processing variant of {@link #putIfUntouched(Object,
+   * IdentifiableValue,Object,Expiration)}. This is more efficient than
+   * multiple single value calls.
    *
-   * @param values key/value mappings for new entries to add to the cache
-   * @throws IllegalArgumentException if the key or value type can't
-   *    be stored as a cache item.  They should be {@link Serializable}.
-   * @throws MemcacheServiceException if server respond with an error for any
-   *    of the given values
+   * @param values the key/values mappings to compare and swap
+   * @param expiration an {@link Expiration} object to set time-based
+   *     expiration for a {@link CasValues value} with a {@code null}
+   *     {@link Expiration expiration} value.
+   *     {@code null} may be used to indicate no specific expiration.
+   * @return the set of keys for which the new value was stored.
+   * @throws IllegalArgumentException If any of the keys or newValues are not
+   *    {@link Serializable} and are not {@code null}. Also throws
+   *    IllegalArgumentException if {@code values} has any nulls.
+   * @throws MemcacheServiceException if server responds with an error for any
+   *    of the given {@code values}
    */
-  void putAll(Map<?, ?> values);
+  <T> Set<T> putIfUntouched(Map<T, CasValues> values, Expiration expiration);
 
   /**
    * Removes {@code key} from the cache.
    *
    * @param key the key of the entry to delete.
    * @return {@code true} if an entry existed, but was discarded
-   * @throws IllegalArgumentException if the key can't be used in the cache
-   *    because it is not {@link Serializable}.
+   * @throws IllegalArgumentException if {@code key} is not
+   *    {@link Serializable} and is not {@code null}
    */
   boolean delete(Object key);
 
   /**
    * Removes the given key from the cache, and prevents it from being added
-   * under the {@link SetPolicy#ADD_ONLY_IF_NOT_PRESENT} policy for {@code millisNoReAdd}
-   * milliseconds thereafter.  Calls to a {@link #put} method using
-   * {@link SetPolicy#SET_ALWAYS} are not blocked, however.
+   * under the {@link SetPolicy#ADD_ONLY_IF_NOT_PRESENT} policy for
+   * {@code millisNoReAdd} milliseconds thereafter.  Calls to a {@link #put}
+   * method using {@link SetPolicy#SET_ALWAYS} are not blocked, however.
    *
    * @param key key to delete
-   * @param millisNoReAdd time during which calls to put using ADD_IF_NOT_PRESENT
-   *     should be denied.
+   * @param millisNoReAdd time during which calls to put using
+   *    ADD_IF_NOT_PRESENT should be denied.
    * @return {@code true} if an entry existed to delete
-   * @throws IllegalArgumentException if the key can't be used in the cache
-   *    because it is not {@link Serializable}.
+   * @throws IllegalArgumentException if {@code key} is not
+   *    {@link Serializable} and is not {@code null}
    */
   boolean delete(Object key, long millisNoReAdd);
 
@@ -322,8 +416,8 @@ public interface MemcacheService extends BaseMemcacheService {
    * @return the Set of keys deleted.  Any keys in {@code keys} but not in the
    *    returned set were not found in the cache. The iteration order of the
    *    returned set matches the iteration order of the provided {@code keys}.
-   * @throws IllegalArgumentException if a key can't be used in the cache
-   *    because it is not {@link Serializable}.
+   * @throws IllegalArgumentException if any element of {@code keys} is not
+   *    {@link Serializable} and is not {@code null}
    */
   <T> Set<T> deleteAll(Collection<T> keys);
 
@@ -336,15 +430,15 @@ public interface MemcacheService extends BaseMemcacheService {
    * @return the Set of keys deleted.  Any keys in {@code keys} but not in the
    *    returned set were not found in the cache. The iteration order of the
    *    returned set matches the iteration order of the provided {@code keys}.
-   * @throws IllegalArgumentException if the key can't be used in the cache
-   *    because it is not {@link Serializable}.
+   * @throws IllegalArgumentException if any element of {@code keys} is not
+   *    {@link Serializable} and is not {@code null}
    */
   <T> Set<T> deleteAll(Collection<T> keys, long millisNoReAdd);
 
   /**
    * Atomically fetches, increments, and stores a given integral value.
    * "Integral" types are {@link Byte}, {@link Short}, {@link Integer},
-   * {@link Long}, and in some cases {@link String} (if the string is parseable
+   * {@link Long}, and in some cases {@link String} (if the string is parsable
    * as a number, for example via {@link Long#parseLong(String)}. The entry must
    * already exist, and have a non-negative value.
    * <p>
@@ -367,15 +461,15 @@ public interface MemcacheService extends BaseMemcacheService {
    * <em>not</em> a signed integer value.
    *
    * @param key the key of the entry to manipulate
-   * @param delta the size of the increment, positive or negative.
+   * @param delta the size of the increment, positive or negative
    * @return the post-increment value, as a long. However, a
-   *         {@link #get(Object)} of the key will still have the original type (
-   *         {@link Byte}, {@link Short}, etc.). If there is no entry for
-   *         {@code key}, returns {@code null}.
-   * @throws IllegalArgumentException if the key can't be used in the cache
-   *         because it is not {@link Serializable}.
+   *    {@link #get(Object)} of the key will still have the original type (
+   *    {@link Byte}, {@link Short}, etc.). If there is no entry for
+   *    {@code key}, returns {@code null}.
+   * @throws IllegalArgumentException if {@code key} is not
+   *    {@link Serializable} and is not {@code null}
    * @throws InvalidValueException if the object incremented is not of a
-   *         integral type
+   *    integral type
    */
   Long increment(Object key, long delta);
 
@@ -384,7 +478,7 @@ public interface MemcacheService extends BaseMemcacheService {
    * key to take on if not already present in the cache.
    *
    * @param initialValue value to insert into the cache if the key is not
-   *   present
+   *    present
    */
   Long increment(Object key, long delta, Long initialValue);
 
@@ -392,8 +486,8 @@ public interface MemcacheService extends BaseMemcacheService {
    * Like normal increment, but increments a batch of separate keys in
    * parallel by the same delta.
    *
-   * @return mapping keys to their new values; values will be null if they could
-   *   not be incremented or were not present in the cache
+   * @return mapping keys to their new values; values will be null if they
+   *    could not be incremented or were not present in the cache
    */
   <T> Map<T, Long> incrementAll(Collection<T> keys, long delta);
 
@@ -402,9 +496,9 @@ public interface MemcacheService extends BaseMemcacheService {
    * parallel by the same delta and potentially sets a starting value.
    *
    * @param initialValue value to insert into the cache if the key is not
-   *   present
-   * @return mapping keys to their new values; values will be null if they could
-   *   not be incremented for whatever reason
+   *    present
+   * @return mapping keys to their new values; values will be null if they
+   *    could not be incremented for whatever reason
    */
   <T> Map<T, Long> incrementAll(Collection<T> keys, long delta, Long initialValue);
 
@@ -413,8 +507,8 @@ public interface MemcacheService extends BaseMemcacheService {
    * offsets for each key individually. Good for incrementing by a sum and
    * a count in parallel.
    *
-   * @return mapping keys to their new values; values will be null if they could
-   *   not be incremented for whatever reason
+   * @return mapping keys to their new values; values will be null if they
+   *    could not be incremented for whatever reason
    */
   <T> Map<T, Long> incrementAll(Map<T, Long> offsets);
 
@@ -424,24 +518,23 @@ public interface MemcacheService extends BaseMemcacheService {
    * a count in parallel. Callers may also pass an initial value for the keys
    * to take on if they are not already present in the cache.
    *
-   * @return mapping keys to their new values; values will be null if they could
-   *   not be incremented for whatever reason
+   * @return mapping keys to their new values; values will be null if they
+   *    could not be incremented for whatever reason
    */
   <T> Map<T, Long> incrementAll(Map<T, Long> offsets, Long initialValue);
 
   /**
-   * Empties the cache of all values.  Statistics are not
-   * affected. Note that {@code clearAll()} does not respect
-   * namespaces - this flushes the cache for every namespace.
+   * Empties the cache of all values.  Statistics are not affected.
+   * Note that this method flushes the cache for all namespaces.
    */
   void clearAll();
 
   /**
    * Fetches some statistics about the cache and its usage.
    *
-   * @return statistics for the cache. Note that {@code getStatistics()} does
-   * not respect namespaces - this will return stats for every namespace.  The
-   * response will never be {@code null}.
+   * @return statistics for the cache. Note that this method returns
+   * aggregated {@link Stats} for all namespaces. Response will never be
+   * {@code null}.
    */
   Stats getStatistics();
 

@@ -58,10 +58,10 @@
   </target>
 
   <target name="test" depends="compile">
+    <!-- Commented out until we have at least one unit test that runs here.
     <mkdir dir="${build.dir}/classes/test"/>
 
     <javac srcdir="${src.dir}/test" destdir="${build.dir}/classes/test">
-      <include name="com/google/appengine/api/memcache/jsr107cache"/>
       <classpath>
         <path refid="test.path"/>
       </classpath>
@@ -79,6 +79,7 @@
         </fileset>
       </batchtest>
     </junit>
+    -->
   </target>
 
   <target name="create-jars" depends="compile">

@@ -39,7 +39,7 @@ public class Counter {
 
   public Counter(String counterName) {
     this.counterName = counterName;
-    this.numShards = new Integer(0);
+    this.numShards = Integer.valueOf(0);
   }
 
   public Counter(String counterName, Integer numShards) {
@@ -60,6 +60,6 @@ public class Counter {
   }
 
   public void setShardCount(int count) {
-    this.numShards = new Integer(count);
+    this.numShards = Integer.valueOf(count);
   }
 }

@@ -10,8 +10,8 @@ import java.util.List;
  */
 public final class DeleteContext extends BaseCallbackContext<Key> {
 
-  DeleteContext(AsyncDatastoreService datastoreService, List<Key> keys) {
-    super(datastoreService, keys);
+  DeleteContext(CurrentTransactionProvider currentTxnProvider, List<Key> keys) {
+    super(currentTxnProvider, keys);
   }
 
   @Override

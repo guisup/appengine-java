@@ -112,7 +112,7 @@ public class ShardedCounter {
     }
 
     if (cache != null) {
-      cache.put("count" + counterName, new Integer(sum));
+      cache.put("count" + counterName, Integer.valueOf(sum));
     }
 
     return sum;
@@ -138,7 +138,7 @@ public class ShardedCounter {
     }
 
     if (cache != null) {
-      cache.put("shards" + counterName, new Integer(numShards));
+      cache.put("shards" + counterName, Integer.valueOf(numShards));
     }
 
     return numShards;
@@ -175,7 +175,7 @@ public class ShardedCounter {
     }
 
     if (cache != null) {
-      cache.put("shards" + counterName, new Integer(numShards));
+      cache.put("shards" + counterName, Integer.valueOf(numShards));
     }
 
     return numShards;
@@ -190,7 +190,7 @@ public class ShardedCounter {
       Integer cachedCount = (Integer) cache.get("count" + counterName);
       if (cachedCount != null) {
         cache.put("count" + counterName,
-            new Integer(count + cachedCount.intValue()));
+            Integer.valueOf(count + cachedCount.intValue()));
       }
     }
 

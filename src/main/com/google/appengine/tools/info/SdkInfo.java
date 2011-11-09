@@ -26,6 +26,7 @@ public class SdkInfo {
   private static List<URL> sharedLibs = null;
   private static List<File> userLibFiles = null;
   private static List<URL> userLibs = null;
+  private static boolean isDevAppServerTest;
 
   static List<URL> toURLs(List<File> files) {
     List<URL> urls = new ArrayList<URL>(files.size());
@@ -169,16 +170,35 @@ public class SdkInfo {
     return DEFAULT_SERVER;
   }
 
+  /**
+   * If {@code true}, the testing jar will be added to the shared libs.  This
+   * is intended for use by frameworks that want to run tests inside the
+   * isolated classloader.
+   *
+   * @param val Whether or the testing jar should be included on the shared
+   * path.
+   */
+  public static void includeTestingJarOnSharedPath(boolean val) {
+    isDevAppServerTest = val;
+  }
   private synchronized static void init() {
     if (!isInitialized) {
       if (sdkRoot == null) {
         sdkRoot = findSdkRoot();
       }
-      sharedLibFiles = Collections.unmodifiableList(getLibsRecursive(sdkRoot, "shared"));
+      sharedLibFiles = determineSharedLibFiles();
       sharedLibs = Collections.unmodifiableList(toURLs(sharedLibFiles));
       userLibFiles = Collections.unmodifiableList(getLibsRecursive(sdkRoot, "user"));
       userLibs = Collections.unmodifiableList(toURLs(userLibFiles));
       isInitialized = true;
     }
+  }
+
+  private static List<File> determineSharedLibFiles() {
+    List<File> sharedLibs = getLibsRecursive(sdkRoot, "shared");
+    if (isDevAppServerTest) {
+      sharedLibs.addAll(getLibsRecursive(sdkRoot, "testing"));
+    }
+    return Collections.unmodifiableList(sharedLibs);
   }
 }

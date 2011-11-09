@@ -5,6 +5,7 @@ package com.google.appengine.api.memcache;
 import static com.google.appengine.api.memcache.MemcacheServiceApiHelper.makeAsyncCall;
 
 import com.google.appengine.api.memcache.MemcacheSerialization.ValueAndFlags;
+import com.google.appengine.api.memcache.MemcacheService.CasValues;
 import com.google.appengine.api.memcache.MemcacheService.IdentifiableValue;
 import com.google.appengine.api.memcache.MemcacheService.SetPolicy;
 import com.google.appengine.api.memcache.MemcacheServiceApiHelper.Provider;
@@ -216,6 +217,20 @@ class AsyncMemcacheServiceImpl extends BaseMemcacheServiceImpl implements AsyncM
     }
   }
 
+  private static final class KeyValuePair<K, V> {
+    private final K key;
+    private final V value;
+
+    private KeyValuePair(K key, V value) {
+      this.key = key;
+      this.value = value;
+    }
+
+    static <K, V> KeyValuePair<K, V> of(K key, V value) {
+      return new KeyValuePair<K, V>(key, value);
+    }
+  }
+
   AsyncMemcacheServiceImpl(String namespace) {
     super(namespace);
   }
@@ -257,8 +272,9 @@ class AsyncMemcacheServiceImpl extends BaseMemcacheServiceImpl implements AsyncM
   }
 
   private <M extends Message, T> RpcResponseHandler<M, T> createRpcResponseHandler(
-      M response, String errorText, Transformer<M, T> responseTransfomer) {
-    return new RpcResponseHandler<M, T>(response, errorText, responseTransfomer, getErrorHandler());
+      M response, String errorText, Transformer<M, T> responseTransformer) {
+    return new RpcResponseHandler<M, T>(
+        response, errorText, responseTransformer, getErrorHandler());
   }
 
   @Override
@@ -309,29 +325,60 @@ class AsyncMemcacheServiceImpl extends BaseMemcacheServiceImpl implements AsyncM
   }
 
   @Override
-  public <T> Future<Map<T, Object>> getAll(Collection<T> keys) {
+  public <K> Future<Map<K, IdentifiableValue>> getIdentifiables(Collection<K> keys) {
+    return doGetAll(keys, true,
+        "Memcache getIdentifiables: exception getting multiple keys",
+        new Transformer<KeyValuePair<K, MemcacheGetResponse.Item>, IdentifiableValue>() {
+          @Override
+          public IdentifiableValue transform(KeyValuePair<K, MemcacheGetResponse.Item> pair) {
+            MemcacheGetResponse.Item item = pair.value;
+            Object value = deserializeItem(pair.key, item);
+            return new IdentifiableValueImpl(value, item.getCasId());
+          }
+        }, DefaultValueProviders.<K, IdentifiableValue>emptyMap());
+  }
+
+  @Override
+  public <K> Future<Map<K, Object>> getAll(Collection<K> keys) {
+    return doGetAll(keys, false,
+        "Memcache getAll: exception getting multiple keys",
+        new Transformer<KeyValuePair<K, MemcacheGetResponse.Item>, Object>() {
+          @Override
+          public Object transform(KeyValuePair<K, MemcacheGetResponse.Item> pair) {
+            return deserializeItem(pair.key, pair.value);
+          }
+        }, DefaultValueProviders.<K, Object>emptyMap());
+  }
+
+  private <K, V> Future<Map<K, V>> doGetAll(Collection<K> keys, boolean forCas,
+      String errorText,
+      final Transformer<KeyValuePair<K, MemcacheGetResponse.Item>, V> responseTransfomer,
+      Provider<Map<K, V>> defaultValue) {
     MemcacheGetRequest.Builder requestBuilder = MemcacheGetRequest.newBuilder();
     requestBuilder.setNameSpace(getEffectiveNamespace());
-    final Map<ByteString, T> byteStringToKey = new HashMap<ByteString, T>(keys.size(), 1);
-    for (T key : keys) {
+    final Map<ByteString, K> byteStringToKey = new HashMap<ByteString, K>(keys.size(), 1);
+    for (K key : keys) {
       ByteString pbKey = makePbKey(key);
       byteStringToKey.put(pbKey, key);
       requestBuilder.addKey(pbKey);
     }
+    if (forCas) {
+      requestBuilder.setForCas(forCas);
+    }
     return makeAsyncCall("Get", requestBuilder.build(), createRpcResponseHandler(
-        MemcacheGetResponse.getDefaultInstance(),
-        "Memcache getAll: exception getting multiple keys",
-        new Transformer<MemcacheGetResponse, Map<T, Object>>() {
-          @Override public Map<T, Object> transform(MemcacheGetResponse response) {
-            Map<T, Object> result = new HashMap<T, Object>();
+        MemcacheGetResponse.getDefaultInstance(), errorText,
+        new Transformer<MemcacheGetResponse, Map<K, V>>() {
+          @Override
+          public Map<K, V> transform(MemcacheGetResponse response) {
+            Map<K, V> result = new HashMap<K, V>();
             for (MemcacheGetResponse.Item item : response.getItemList()) {
-              T key = byteStringToKey.get(item.getKey());
-              Object obj = deserializeItem(key, item);
+              K key = byteStringToKey.get(item.getKey());
+              V obj = responseTransfomer.transform(KeyValuePair.of(key, item));
               result.put(key, obj);
             }
             return result;
           }
-        }), DefaultValueProviders.<T, Object>emptyMap());
+        }), defaultValue);
   }
 
   /**
@@ -420,8 +467,18 @@ class AsyncMemcacheServiceImpl extends BaseMemcacheServiceImpl implements AsyncM
     return doPut(key, oldValue, newValue, null, MemcacheSetRequest.SetPolicy.CAS);
   }
 
+  @Override
+  public <T> Future<Set<T>> putIfUntouched(Map<T, CasValues> values) {
+    return doPutAll(values, null, MemcacheSetRequest.SetPolicy.CAS, "putIfUntouched");
+  }
+
+  @Override
+  public <T> Future<Set<T>> putIfUntouched(Map<T, CasValues> values, Expiration expiration) {
+    return doPutAll(values, expiration, MemcacheSetRequest.SetPolicy.CAS, "putIfUntouched");
+  }
+
   private <T> Future<Set<T>> doPutAll(Map<T, ?> values, Expiration expires,
-      MemcacheSetRequest.SetPolicy policy) {
+      MemcacheSetRequest.SetPolicy policy, String operation) {
     MemcacheSetRequest.Builder requestBuilder = MemcacheSetRequest.newBuilder();
     requestBuilder.setNameSpace(getEffectiveNamespace());
     final List<T> requestedKeys = new ArrayList<T>(values.size());
@@ -429,16 +486,37 @@ class AsyncMemcacheServiceImpl extends BaseMemcacheServiceImpl implements AsyncM
       MemcacheSetRequest.Item.Builder itemBuilder = MemcacheSetRequest.Item.newBuilder();
       requestedKeys.add(entry.getKey());
       itemBuilder.setKey(makePbKey(entry.getKey()));
-      ValueAndFlags vaf = serializeValue(entry.getValue());
+      ValueAndFlags vaf;
+      if (policy == MemcacheSetRequest.SetPolicy.CAS) {
+        CasValues value = (CasValues) entry.getValue();
+        if (value == null) {
+          throw new IllegalArgumentException(entry.getKey() + " has a null for CasValues");
+        }
+        vaf = serializeValue(value.getNewValue());
+        if (!(value.getOldValue() instanceof IdentifiableValueImpl)) {
+          throw new IllegalArgumentException(
+            entry.getKey() + " CasValues has an oldValue instance of an unapproved " +
+            "IdentifiableValue implementation.  Perhaps you implemented your own " +
+            "version of IdentifiableValue?  If so, don't do this.");
+        }
+        itemBuilder.setCasId(((IdentifiableValueImpl) value.getOldValue()).getCasId());
+        if (value.getExipration() != null) {
+          itemBuilder.setExpirationTime(value.getExipration().getSecondsValue());
+        } else {
+          itemBuilder.setExpirationTime(expires == null ? 0 : expires.getSecondsValue());
+        }
+      } else {
+        vaf = serializeValue(entry.getValue());
+        itemBuilder.setExpirationTime(expires == null ? 0 : expires.getSecondsValue());
+      }
       itemBuilder.setValue(ByteString.copyFrom(vaf.value));
       itemBuilder.setFlags(vaf.flags.ordinal());
-      itemBuilder.setExpirationTime(expires == null ? 0 : expires.getSecondsValue());
       itemBuilder.setSetPolicy(policy);
       requestBuilder.addItem(itemBuilder);
     }
     return makeAsyncCall("Set", requestBuilder.build(), createRpcResponseHandler(
         MemcacheSetResponse.getDefaultInstance(),
-        "Memcache putAll: Unknown exception setting " + values.size() + " keys",
+        "Memcache " + operation + ": Unknown exception setting " + values.size() + " keys",
         new Transformer<MemcacheSetResponse, Set<T>>() {
           @Override public Set<T> transform(MemcacheSetResponse response) {
             if (response.getSetStatusCount() != requestedKeys.size()) {
@@ -474,17 +552,19 @@ class AsyncMemcacheServiceImpl extends BaseMemcacheServiceImpl implements AsyncM
 
   @Override
   public <T> Future<Set<T>> putAll(Map<T, ?> values, Expiration expires, SetPolicy policy) {
-    return doPutAll(values, expires, convertSetPolicyToPb(policy));
+    return doPutAll(values, expires, convertSetPolicyToPb(policy), "putAll");
   }
 
   @Override
   public Future<Void> putAll(Map<?, ?> values, Expiration expires) {
-    return VoidFutureWrapper.wrap(doPutAll(values, expires, MemcacheSetRequest.SetPolicy.SET));
+    return VoidFutureWrapper.wrap(
+        doPutAll(values, expires, MemcacheSetRequest.SetPolicy.SET, "putAll"));
   }
 
   @Override
   public Future<Void> putAll(Map<?, ?> values) {
-    return VoidFutureWrapper.wrap(doPutAll(values, null, MemcacheSetRequest.SetPolicy.SET));
+    return VoidFutureWrapper.wrap(
+        doPutAll(values, null, MemcacheSetRequest.SetPolicy.SET, "putAll"));
   }
 
   @Override
@@ -493,7 +573,7 @@ class AsyncMemcacheServiceImpl extends BaseMemcacheServiceImpl implements AsyncM
   }
 
   @Override
-  public Future<Boolean> delete(Object key, long millisNoReAdd){
+  public Future<Boolean> delete(Object key, long millisNoReAdd) {
     MemcacheDeleteRequest request = MemcacheDeleteRequest.newBuilder()
         .setNameSpace(getEffectiveNamespace())
         .addItem(MemcacheDeleteRequest.Item.newBuilder()

@@ -3,6 +3,7 @@ package com.google.appengine.api.datastore;
 
 import java.util.Collection;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.concurrent.Future;
 
 /**
@@ -99,4 +100,26 @@ interface TransactionStack {
    * Transaction}.
    */
   LinkedHashSet<Future<?>> getFutures(Transaction txn);
+
+  /**
+   * Register that the provided entities were put as part of the given txn.
+   */
+  void addPutEntities(Transaction txn, List<Entity> putEntities);
+
+  /**
+   * Returns the entities that were put as part of the given txn.
+   */
+  List<Entity> getPutEntities(Transaction txn);
+
+  /**
+   * Register that the entities uniquely identified by the given keys were
+   * deleted as part of the given txn.
+   */
+  void addDeletedKeys(Transaction txn, List<Key> deletedKeys);
+
+  /**
+   * Returns the keys uniquely identifying the entities that were deleted as
+   * part of the given txn.
+   */
+  List<Key> getDeletedKeys(Transaction txn);
 }

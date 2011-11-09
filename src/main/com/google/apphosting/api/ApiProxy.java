@@ -596,6 +596,10 @@ public class ApiProxy {
                                       String methodName) {
       super(message, packageName, methodName);
     }
+
+    public FeatureNotEnabledException(String message) {
+      super(message);
+    }
   }
 
   public static class OverQuotaException extends ApiProxyException {

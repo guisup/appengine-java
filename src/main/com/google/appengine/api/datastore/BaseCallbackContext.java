@@ -14,7 +14,7 @@ import java.util.List;
  *
  */
 abstract class BaseCallbackContext<T> implements CallbackContext<T> {
-  private final AsyncDatastoreService datastoreService;
+  private final CurrentTransactionProvider currentTxnProvider;
 
   /**
    * All elements provided to the operation that triggered the callback.
@@ -27,13 +27,12 @@ abstract class BaseCallbackContext<T> implements CallbackContext<T> {
   private int currentIndex;
 
   /**
-   * @param datastoreService The service that is performing the operation that
-   * triggered the callback.
+   * @param currentTxnProvider Provides the current transaction
    * @param elements All elements involved in the operation that triggered the
    * callback.
    */
-  BaseCallbackContext(AsyncDatastoreService datastoreService, List<T> elements) {
-    this.datastoreService = Preconditions.checkNotNull(datastoreService);
+  BaseCallbackContext(CurrentTransactionProvider currentTxnProvider, List<T> elements) {
+    this.currentTxnProvider = Preconditions.checkNotNull(currentTxnProvider);
     this.elements = Collections.unmodifiableList(Preconditions.checkNotNull(elements));
   }
 
@@ -44,7 +43,7 @@ abstract class BaseCallbackContext<T> implements CallbackContext<T> {
 
   @Override
   public Transaction getCurrentTransaction() {
-    return datastoreService.getCurrentTransaction(null);
+    return currentTxnProvider.getCurrentTransaction(null);
   }
 
   @Override

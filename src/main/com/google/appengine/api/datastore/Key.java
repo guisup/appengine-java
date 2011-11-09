@@ -101,12 +101,18 @@ public final class Key implements Serializable, Comparable<Key> {
       }
     }
 
-    this.name = name;
     this.id = id;
-
     this.parentKey = parentKey;
-    this.kind = kind.intern();
+    this.name = getString(parentKey, name);
+    this.kind = getString(parentKey, kind);
     this.appIdNamespace = appIdNamespace;
+  }
+
+  private static String getString(Key parentKey, String value) {
+    if (value == null || parentKey == null) {
+      return value;
+    }
+    return new String(value);
   }
 
   private void writeObject(ObjectOutputStream out) throws IOException {

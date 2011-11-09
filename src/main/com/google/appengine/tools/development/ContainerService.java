@@ -2,9 +2,8 @@
 
 package com.google.appengine.tools.development;
 
-import com.google.apphosting.utils.config.BackendsXml;
 import com.google.apphosting.utils.config.AppEngineWebXml;
-import com.google.apphosting.utils.config.AppEngineWebXmlReader;
+import com.google.apphosting.utils.config.BackendsXml;
 
 import java.io.File;
 import java.util.Map;
@@ -35,21 +34,24 @@ public interface ContainerService {
    * @param devAppServerVersion Version of the devAppServer.
    * @param appDir The location of the application to run.
    * @param webXmlLocation The location of a file whose format complies with
-   * http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd.  Can be null.
-   * @param appEngineWebXmlReader The reader that will be used to create
-   * an instance of {@link com.google.apphosting.utils.config.AppEngineWebXml}.
-   * If {@code null}, an instance of {@link AppEngineWebXmlReader} will be
-   * instantiated with {@code appDir} as the constructor argument.
+   * http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd.  If null we will use
+   * <appDir>/WEB-INF/web.xml.
+   * @param appEngineWebXmlLocation The location of the app engine config file.
+   * If null we will use <appDir>/WEB-INF/appengine-web.xml.
    * @param address The address on which the server will run
    * @param port The port to which the server will be bound.  If 0, an
    * available port will be selected.
+   * @param containerConfigProperties Additional properties used in the
+   * configuration of the specific container implementation.  This map travels
+   * across classloader boundaries, so all values in the map must be JRE
+   * classes.
    *
    * @return A LocalServerEnvironment describing the environment in which
    * the server is running.
    */
   LocalServerEnvironment configure(String devAppServerVersion, File appDir,
-      String webXmlLocation, AppEngineWebXmlReader appEngineWebXmlReader,
-      String address, int port);
+      File webXmlLocation, File appEngineWebXmlLocation,
+      String address, int port, Map<String, Object> containerConfigProperties);
 
   /**
    * Starts up the servlet container.
@@ -94,11 +96,6 @@ public interface ContainerService {
   AppEngineWebXml getAppEngineWebXmlConfig();
 
   BackendsXml getBackendsXml();
-
-  /**
-   * Returns the root directory of the application.
-   */
-  File getAppDirectory();
 
   /**
    * Overrides the default EnvironmentVariableMismatchSeverity setting, to

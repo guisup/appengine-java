@@ -35,7 +35,7 @@ public class LimitedCounterShard {
   private Integer count;
 
   public LimitedCounterShard() {
-    this.count = new Integer(0);
+    this.count = Integer.valueOf(0);
   }
 
   public LimitedCounterShard(Integer count) {

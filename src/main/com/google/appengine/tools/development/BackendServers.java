@@ -7,7 +7,6 @@ import com.google.appengine.tools.development.AbstractContainerService.LocalInit
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.api.ApiProxy.Environment;
 import com.google.apphosting.utils.config.BackendsXml;
-import com.google.apphosting.utils.config.AppEngineWebXmlReader;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMapBuilder;
 import com.google.common.collect.Maps;
@@ -22,7 +21,6 @@ import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -51,7 +49,7 @@ public class BackendServers implements BackendContainer, LocalServerController {
   private static final int AH_REQUEST_DEFAULT_TIMEOUT = 30 * 1000;
   private static final int AH_REQUEST_INFINITE_TIMEOUT = 0;
 
-  private static final Integer DEFAULT_INSTANCES = new Integer(1);
+  private static final Integer DEFAULT_INSTANCES = 1;
   private static final String DEFAULT_INSTANCE_CLASS = "B1";
   private static final Integer DEFAULT_MAX_CONCURRENT_REQUESTS = 10;
 
@@ -71,7 +69,9 @@ public class BackendServers implements BackendContainer, LocalServerController {
 
   private String address;
   private File appDir;
-  private String appEngineWebXmlFileName;
+  private File webXmlLocation;
+  private File appEngineWebXmlLocation;
+  private Map<String, Object> containerConfigProperties;
   private Map<BackendServers.ServerInstanceEntry, ServerWrapper> backendServers =
       ImmutableMapBuilder.fromMap(new HashMap<ServerInstanceEntry, ServerWrapper>()).getMap();
   private Map<String, String> portMapping =
@@ -84,10 +84,13 @@ public class BackendServers implements BackendContainer, LocalServerController {
   BackendServers() {
   }
 
-  public void init(File appDir, String appEngineWebXml, String address) {
+  public void init(File appDir, File webXmlLocation, File appEngineWebXmlLocation, String address,
+      Map<String, Object> containerConfigProperties) {
     this.appDir = appDir;
-    this.appEngineWebXmlFileName = appEngineWebXml;
+    this.webXmlLocation = webXmlLocation;
+    this.appEngineWebXmlLocation = appEngineWebXmlLocation;
     this.address = address;
+    this.containerConfigProperties = containerConfigProperties;
   }
 
   @Override
@@ -102,8 +105,7 @@ public class BackendServers implements BackendContainer, LocalServerController {
    */
   @Override
   public void shutdownAll() throws Exception {
-    for (Iterator<ServerWrapper> iter = backendServers.values().iterator(); iter.hasNext();) {
-      ServerWrapper server = iter.next();
+    for (ServerWrapper server : backendServers.values()) {
       logger.finer("server shutdown: " + server);
       server.shutdown();
     }
@@ -199,7 +201,7 @@ public class BackendServers implements BackendContainer, LocalServerController {
    * Start all backend servers, the number of servers to start is specified
    * in the {@code appConfig} parameter
    *
-   * @param appConfig Parsed appengine-web.xml file with servers configuration
+   * @param backendsXml Parsed backends.xml file with servers configuration
    * @throws Exception
    */
   @Override
@@ -616,16 +618,17 @@ public class BackendServers implements BackendContainer, LocalServerController {
    */
   private class ServerWrapper {
 
-    private ContainerService container;
-    private int serverInstance;
+    private final ContainerService container;
+    private final int serverInstance;
     private int port;
-    private BackendsXml.Entry serverEntry;
+    private final BackendsXml.Entry serverEntry;
 
     private BackendServerState serverState = BackendServerState.SHUTDOWN;
 
-    private Semaphore servingQueue = new Semaphore(0, true);
+    private final Semaphore servingQueue = new Semaphore(0, true);
 
-    public ServerWrapper(ContainerService containerService, BackendsXml.Entry serverEntry,
+    public ServerWrapper(ContainerService containerService,
+        BackendsXml.Entry serverEntry,
         int instance, int port) {
       this.container = containerService;
       this.serverEntry = serverEntry;
@@ -712,18 +715,13 @@ public class BackendServers implements BackendContainer, LocalServerController {
     void startup(boolean setStateToStopped) throws Exception {
       compareAndSetServerState(BackendServerState.INITIALIZING, BackendServerState.SHUTDOWN);
 
-      AppEngineWebXmlReader appEngineWebXmlReader = null;
-      if (appEngineWebXmlFileName != null) {
-        appEngineWebXmlReader =
-            new AppEngineWebXmlReader(appDir.getAbsolutePath(), appEngineWebXmlFileName);
-      }
-
       container.configure(ContainerUtils.getServerInfo(),
           appDir,
-          appEngineWebXmlFileName,
-          appEngineWebXmlReader,
+          webXmlLocation,
+          appEngineWebXmlLocation,
           address,
-          port);
+          port,
+          containerConfigProperties);
       container.startup();
 
       this.port = container.getPort();

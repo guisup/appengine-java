@@ -26,6 +26,7 @@ import com.google.apphosting.api.DatastorePb.GetResponse;
 import com.google.apphosting.api.DatastorePb.PutRequest;
 import com.google.apphosting.api.DatastorePb.PutResponse;
 import com.google.common.base.Pair;
+import com.google.common.collect.Lists;
 import com.google.io.protocol.Protocol;
 import com.google.storage.onestore.v3.OnestoreEntity.CompositeIndex;
 import com.google.storage.onestore.v3.OnestoreEntity.EntityProto;
@@ -48,7 +49,7 @@ import java.util.logging.Level;
  *
  */
 class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
-      implements AsyncDatastoreService {
+      implements AsyncDatastoreService, CurrentTransactionProvider {
 
   /***
    * An aggregate future that uses an iterator to match results to requested elements.
@@ -253,8 +254,7 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
     if (keys == null) {
       throw new NullPointerException("keys cannot be null");
     }
-    if (txn == null && datastoreServiceConfig.getMaxEntityGroupsPerRpc() != null &&
-        datastoreServiceConfig.getReadPolicy().getConsistency() == STRONG &&
+    if (txn == null && datastoreServiceConfig.getReadPolicy().getConsistency() == STRONG &&
         getDatastoreType() == HIGH_REPLICATION) {
       Collection<List<Key>> keysByEntityGroup = KEY_GROUPER.getItemsByEntityGroup(keys);
       if (keysByEntityGroup.size() > 1) {
@@ -414,19 +414,35 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
 
   @Override
   public Future<List<Key>> put( Transaction txn, Iterable<Entity> entities) {
-    if (txn == null && datastoreServiceConfig.getMaxEntityGroupsPerRpc() != null) {
+    List<Entity> entityList = List.class.isAssignableFrom(entities.getClass()) ?
+                                    (List<Entity>) entities : Lists.newArrayList(entities);
+    PutContext prePutContext = new PutContext(this, entityList);
+    datastoreServiceConfig.getDatastoreCallbacks().executePrePutCallbacks(prePutContext);
+    Future<List<Key>> result = null;
+    PutContext postPutContext = null;
+    if (txn == null) {
+      postPutContext = new PutContext(this, entityList);
       List<IndexedItem<Entity>> indexedEntities = new ArrayList<IndexedItem<Entity>>();
       int index = 0;
-      for (Entity entity : entities) {
+      for (Entity entity : entityList) {
         indexedEntities.add(new IndexedItem<Entity>(entity, index++));
       }
       Collection<List<IndexedItem<Entity>>> entitiesByEntityGroup =
           ENTITY_GROUPER.getItemsByEntityGroup(indexedEntities);
       if (entitiesByEntityGroup.size() > 1) {
-        return doBatchPutByEntityGroups(entitiesByEntityGroup);
+        result = doBatchPutByEntityGroups(entitiesByEntityGroup);
       }
     }
-    return doBatchPutBySize(txn, entities);
+    if (result == null) {
+      result = doBatchPutBySize(txn, entityList);
+    }
+    if (txn == null) {
+      result = new PostPutFuture(
+          result, datastoreServiceConfig.getDatastoreCallbacks(), postPutContext);
+    } else {
+      defaultTxnProvider.addPutEntities(txn, entityList);
+    }
+    return result;
   }
 
   /**
@@ -510,7 +526,7 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
     for (List<IndexedItem<Entity>> indexedEntitiesInGroup : entitiesByEntityGroup) {
       entitiesToPut.addAll(indexedEntitiesInGroup);
       numEntityGroups++;
-      if (numEntityGroups == datastoreServiceConfig.getMaxEntityGroupsPerRpc()) {
+      if (numEntityGroups == datastoreServiceConfig.getMaxEntityGroupsPerRpcInternal()) {
         assemblePutFuture(entitiesToPut, subFutures);
         numEntityGroups = 0;
       }
@@ -609,13 +625,29 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
 
   @Override
   public Future<Void> delete(Transaction txn, Iterable<Key> keys) {
-    if (txn == null && datastoreServiceConfig.getMaxEntityGroupsPerRpc() != null) {
-      Collection<List<Key>> keysByEntityGroup = KEY_GROUPER.getItemsByEntityGroup(keys);
+    List<Key> keyList =
+        List.class.isAssignableFrom(keys.getClass()) ? (List<Key>) keys : Lists.newArrayList(keys);
+    DeleteContext preDeleteContext = new DeleteContext(this, keyList);
+    datastoreServiceConfig.getDatastoreCallbacks().executePreDeleteCallbacks(preDeleteContext);
+    Future<Void> result = null;
+    DeleteContext postDeleteContext = null;
+    if (txn == null) {
+      postDeleteContext = new DeleteContext(this, keyList);
+      Collection<List<Key>> keysByEntityGroup = KEY_GROUPER.getItemsByEntityGroup(keyList);
       if (keysByEntityGroup.size() > 1) {
-        return doBatchDeleteByEntityGroups(keysByEntityGroup);
+        result = doBatchDeleteByEntityGroups(keysByEntityGroup);
       }
     }
-    return doBatchDeleteBySize(txn, keys);
+    if (result == null) {
+      result = doBatchDeleteBySize(txn, keyList);
+    }
+    if (txn == null) {
+      result = new PostDeleteFuture(
+          result, datastoreServiceConfig.getDatastoreCallbacks(), postDeleteContext);
+    } else {
+      defaultTxnProvider.addDeletedKeys(txn, keyList);
+    }
+    return result;
   }
 
   /**
@@ -697,7 +729,7 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
     for (List<Key> keysInGroup : keysByEntityGroup) {
       keysToDelete.addAll(keysInGroup);
       numEntityGroups++;
-      if (numEntityGroups == datastoreServiceConfig.getMaxEntityGroupsPerRpc()) {
+      if (numEntityGroups == datastoreServiceConfig.getMaxEntityGroupsPerRpcInternal()) {
         subFutures.add(doBatchDeleteBySize(null, keysToDelete));
         keysToDelete = new ArrayList<Key>();
         numEntityGroups = 0;
@@ -738,7 +770,7 @@ class AsyncDatastoreServiceImpl extends BaseDatastoreServiceImpl
    * @param <T> The type of the Future
    * @return The same future that was passed in, for caller convenience.
    */
-  private <T> Future<T> registerInTransaction( Transaction txn, final Future<T> future) {
+  private <T> Future<T> registerInTransaction( Transaction txn, Future<T> future) {
     if (txn != null) {
       defaultTxnProvider.addFuture(txn, future);
       return new FutureHelper.TxnAwareFuture<T>(future, txn, defaultTxnProvider);

@@ -18,5 +18,6 @@ public interface BackendContainer {
 
   public void startupAll(BackendsXml backendsXml) throws Exception;
 
-  void init(File appDir, String appEngineWebXml, String address);
+  void init(File appDir, File webXmlLocation, File appEngineWebXmlLocation, String address,
+      Map<String, Object> containerConfigProperties);
 }

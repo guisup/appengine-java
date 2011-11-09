@@ -2,6 +2,10 @@
 package com.google.appengine.api.datastore;
 
 import com.google.appengine.api.datastore.ReadPolicy.Consistency;
+
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+
 /**
  * User-configurable properties of the datastore.
  *
@@ -68,6 +72,16 @@ public final class DatastoreServiceConfig {
   static final int DEFAULT_MAX_ENTITY_GROUPS_PER_HIGH_REP_READ_RPC =
       getDefaultMaxEntityGroupsPerHighRepReadRpc();
 
+  static String CALLBACKS_CONFIG_SYS_PROP = "appengine.datastore.callbacksConfig";
+
+  static volatile DatastoreCallbacks CALLBACKS = null;
+
+  /**
+   * Keep in sync with
+   * com.google.appengine.tools.compilation.DatastoreCallbacksProcessor.CALLBACKS_CONFIG_FILE
+   */
+  private static final String CALLBACKS_CONFIG_FILE = "/META-INF/datastorecallbacks.xml";
+
   static int getDefaultMaxEntityGroupsPerRpc() {
     return getDefaultMaxEntityGroupsPerRpc(DEFAULT_MAX_ENTITY_GROUPS_PER_RPC_SYS_PROP, 10);
   }
@@ -84,6 +98,17 @@ public final class DatastoreServiceConfig {
   static int getDefaultMaxEntityGroupsPerRpc(String sysPropName, int defaultVal) {
     String sysPropVal = System.getProperty(sysPropName);
     return sysPropVal == null ? defaultVal : Integer.parseInt(sysPropVal);
+  }
+
+  private static InputStream getCallbacksConfigInputStream() {
+    InputStream is;
+    String callbacksConfig = System.getProperty(CALLBACKS_CONFIG_SYS_PROP);
+    if (callbacksConfig != null) {
+      is = new ByteArrayInputStream(callbacksConfig.getBytes());
+    } else {
+      is = DatastoreServiceConfig.class.getResourceAsStream(CALLBACKS_CONFIG_FILE);
+    }
+    return is;
   }
 
   private ImplicitTransactionManagementPolicy implicitTransactionManagementPolicy =
@@ -259,6 +284,10 @@ public final class DatastoreServiceConfig {
    * @return The maximum number of entity groups per rpc.
    */
   public Integer getMaxEntityGroupsPerRpc() {
+    return getMaxEntityGroupsPerRpcInternal();
+  }
+
+  int getMaxEntityGroupsPerRpcInternal() {
     return maxEntityGroupsPerRpc;
   }
 
@@ -281,6 +310,30 @@ public final class DatastoreServiceConfig {
   boolean exceedsReadLimits(int count, int size) {
     return (count > maxBatchReadEntities ||
         (count > 1 && size > maxRpcSizeBytes));
+  }
+
+  DatastoreCallbacks getDatastoreCallbacks() {
+    if (CALLBACKS == null) {
+      InputStream is = getCallbacksConfigInputStream();
+      if (is == null) {
+        CALLBACKS = new DatastoreCallbacks() {
+          @Override
+          public void executePrePutCallbacks(PutContext context) { }
+
+          @Override
+          public void executePostPutCallbacks(PutContext context) { }
+
+          @Override
+          public void executePreDeleteCallbacks(DeleteContext context) { }
+
+          @Override
+          public void executePostDeleteCallbacks(DeleteContext context) { }
+        };
+      } else {
+        CALLBACKS = new DatastoreCallbacksImpl(is, false);
+      }
+    }
+    return CALLBACKS;
   }
 
   /**

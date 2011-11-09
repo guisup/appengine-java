@@ -5,17 +5,22 @@ package com.google.appengine.tools.development;
 import com.google.appengine.tools.development.agent.AppEngineDevAgent;
 import com.google.apphosting.utils.security.SecurityManagerInstaller;
 
+import sun.security.util.SecurityConstants;
+
 import java.io.File;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.InvocationTargetException;
+import java.net.URL;
 import java.security.Permission;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.PropertyPermission;
-
-import sun.security.util.SecurityConstants;
 
 /**
  * Creates new {@link DevAppServer DevAppServers} which can be used to launch
  * web applications.
+ * TODO(user): Describe the difference between standalone and testing servers.
  *
  */
 public class DevAppServerFactory {
@@ -23,19 +28,26 @@ public class DevAppServerFactory {
   static final String DEV_APP_SERVER_CLASS =
       "com.google.appengine.tools.development.DevAppServerImpl";
 
+  private static final Class[] DEV_APPSERVER_CTOR_ARG_TYPES = {
+      File.class, File.class, File.class, String.class, Integer.TYPE, Boolean.TYPE, Map.class};
+
+  private static final String USER_CODE_CLASSPATH_MANAGER_PROP =
+      "devappserver.userCodeClasspathManager";
+  private static final String USER_CODE_CLASSPATH = USER_CODE_CLASSPATH_MANAGER_PROP + ".classpath";
+  private static final String USER_CODE_REQUIRES_WEB_INF =
+      USER_CODE_CLASSPATH_MANAGER_PROP + ".requiresWebInf";
+
   /**
    * Creates a new {@link DevAppServer} ready to start serving
    *
-   * @param appLocation The top-level directory of the web application to be run
+   * @param appDir The top-level directory of the web application to be run
    * @param address Address to bind to
    * @param port Port to bind to
    *
-   * @return a not {@code null} {@code DevAppServer}
+   * @return a {@code DevAppServer}
    */
-  public DevAppServer createDevAppServer(File appLocation, String address, int port) {
-    return createDevAppServer(
-        new Class[]{File.class, String.class, Integer.TYPE},
-        new Object[]{appLocation, address, port});
+  public DevAppServer createDevAppServer(File appDir, String address, int port) {
+    return createDevAppServer(appDir, null, null, address, port, true);
   }
 
   /**
@@ -43,10 +55,12 @@ public class DevAppServerFactory {
    * to clients that can access it via reflection to keep it out of the public
    * api.
    *
-   * @param appLocation The top-level directory of the web application to be run
-   * @param appEngineWebXml The name of the app engine config file, relative to
-   * the WEB-INF directory.  If {@code null},
-   * {@code com.google.apphosting.utils.config.AppEngineWebXmlReader#DEFAULT_FILENAME} is used.
+   * @param appDir The top-level directory of the web application to be run
+   * @param webXmlLocation The location of a file whose format complies with
+   * http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd.  If {@code null},
+   * defaults to <appDir>/WEB-INF/web.xml
+   * @param appEngineWebXmlLocation The location of the app engine config file.  If
+   * {@code null}, defaults to <appDir>/WEB-INF/appengine-web.xml.
    * @param address Address to bind to
    * @param port Port to bind to
    * @param useCustomStreamHandler If {@code true}, install
@@ -54,20 +68,69 @@ public class DevAppServerFactory {
    * app server but tests may want to disable this since there are some
    * compatibility issues with our custom handler and Selenium.
    *
-   * @return a not {@code null} {@code DevAppServer}
+   * @return a {@code DevAppServer}
    */
-  @SuppressWarnings({"UnusedDeclaration", "unused"})
   private DevAppServer createDevAppServer(
-      File appLocation, String appEngineWebXml, String address, int port,
+      File appDir, File webXmlLocation, File appEngineWebXmlLocation, String address, int port,
       boolean useCustomStreamHandler) {
-    return createDevAppServer(
-        new Class[]{
-            File.class, String.class, String.class, String.class, Integer.TYPE, Boolean.TYPE},
-        new Object[]{appLocation, null, appEngineWebXml, address, port, useCustomStreamHandler});
+    return createDevAppServer(appDir, webXmlLocation, appEngineWebXmlLocation, address, port,
+        useCustomStreamHandler, true, new HashMap<String, Object>());
   }
 
-  private DevAppServer createDevAppServer(Class[] ctorArgTypes, Object[] ctorArgs) {
-    SecurityManagerInstaller.install();
+  /**
+   * Creates a new {@link DevAppServer} with a custom classpath for the web
+   * app..
+   *
+   * @param appDir The top-level directory of the web application to be run
+   * @param webXmlLocation The location of a file whose format complies with
+   * http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd.  If {@code null},
+   * defaults to <appDir>/WEB-INF/web.xml
+   * @param appEngineWebXmlLocation The name of the app engine config file.  If
+   * {@code null}, defaults to <appDir>/WEB-INF/appengine-web.xml.
+   * @param address Address to bind to
+   * @param port Port to bind to
+   * @param useCustomStreamHandler If {@code true}, install
+   * {@link StreamHandlerFactory}.  This is "normal" behavior for the dev
+   * app server but tests may want to disable this since there are some
+   * compatibility issues with our custom handler and Selenium.
+   * @param installSecurityManager Whether or not to install the dev appserver
+   * security manager.  It is strongly recommended you pass {@code true} unless
+   * there is something in your test environment that prevents you from
+   * installing a security manager.
+   * @param classpath The classpath of the test and all its dependencies
+   * (possibly the entire app)..
+   *
+   * @return a {@code DevAppServer}
+   */
+  public DevAppServer createDevAppServer(
+      File appDir, File webXmlLocation, File appEngineWebXmlLocation, String address, int port,
+      boolean useCustomStreamHandler, boolean installSecurityManager, Collection<URL> classpath) {
+    Map<String, Object> containerConfigProps = newContainerConfigPropertiesForTest(classpath);
+    return createDevAppServer(appDir, webXmlLocation, appEngineWebXmlLocation, address, port,
+        useCustomStreamHandler, installSecurityManager, containerConfigProps);
+  }
+
+  /**
+   * Build a {@link Map} that contains settings that will allow us to inject
+   * our own classpath and to not require a WEB-INF directory.  This map will
+   * travel across classloader boundaries so all values in the map must be jre
+   * classes.
+   */
+  private Map<String, Object> newContainerConfigPropertiesForTest(Collection<URL> classpath) {
+    Map<String, Object> containerConfigProps = new HashMap<String, Object>();
+    Map<String, Object> userCodeClasspathManagerProps = new HashMap<String, Object>();
+    userCodeClasspathManagerProps.put(USER_CODE_CLASSPATH, classpath);
+    userCodeClasspathManagerProps.put(USER_CODE_REQUIRES_WEB_INF, false);
+    containerConfigProps.put(USER_CODE_CLASSPATH_MANAGER_PROP, userCodeClasspathManagerProps);
+    return containerConfigProps;
+  }
+
+  private DevAppServer createDevAppServer(File appDir, File webXmlLocation,
+      File appEngineWebXmlLocation, String address, int port, boolean useCustomStreamHandler,
+      boolean installSecurityManager, Map<String, Object> containerConfigProperties) {
+    if (installSecurityManager) {
+      SecurityManagerInstaller.install();
+    }
 
     DevAppServerClassLoader loader = DevAppServerClassLoader.newClassLoader(
         DevAppServerFactory.class.getClassLoader());
@@ -77,9 +140,11 @@ public class DevAppServerFactory {
     DevAppServer devAppServer;
     try {
       Class<?> devAppServerClass = Class.forName(DEV_APP_SERVER_CLASS, true, loader);
-      Constructor cons = devAppServerClass.getConstructor(ctorArgTypes);
+      Constructor cons = devAppServerClass.getConstructor(DEV_APPSERVER_CTOR_ARG_TYPES);
       cons.setAccessible(true);
-      devAppServer = (DevAppServer) cons.newInstance(ctorArgs);
+      devAppServer = (DevAppServer) cons.newInstance(
+          appDir, webXmlLocation, appEngineWebXmlLocation, address, port, useCustomStreamHandler,
+          containerConfigProperties);
     } catch (Exception e) {
       Throwable t = e;
       if (e instanceof InvocationTargetException) {
@@ -87,7 +152,9 @@ public class DevAppServerFactory {
       }
       throw new RuntimeException("Unable to create a DevAppServer", t);
     }
-    System.setSecurityManager(new CustomSecurityManager(devAppServer));
+    if (installSecurityManager) {
+      System.setSecurityManager(new CustomSecurityManager(devAppServer));
+    }
     return devAppServer;
   }
 
@@ -133,6 +200,17 @@ public class DevAppServerFactory {
         }
       }
 
+      if (PERMISSION_MODIFY_THREAD.equals(perm)) {
+        StackTraceElement frame = getCallerFrame();
+        if ("java.util.concurrent.ThreadPoolExecutor".equals(frame.getClassName()) ||
+            ("java.lang.Thread".equals(frame.getClassName()) &&
+             "interrupt".equals(frame.getMethodName())) ||
+            ("java.lang.Thread".equals(frame.getClassName()) &&
+             "setUncaughtExceptionHandler".equals(frame.getMethodName()))) {
+          return true;
+        }
+      }
+
       return SecurityConstants.FILE_READ_ACTION.equals(perm.getActions()) &&
           perm.getName().endsWith(KEYCHAIN_JNILIB);
     }
@@ -145,7 +223,7 @@ public class DevAppServerFactory {
 
       if (isDevAppServerThread()) {
         if (appHasPermission(perm)) {
-            return;
+          return;
         }
 
         super.checkPermission(perm);
@@ -190,6 +268,22 @@ public class DevAppServerFactory {
 
     public boolean isDevAppServerThread() {
       return Boolean.getBoolean("devappserver-thread-" + Thread.currentThread().getName());
+    }
+
+    /**
+     * Find the first {@link StackTraceElement} on the current thread
+     * which does not come from this class or from a method named
+     * {@code checkAccess} (e.g. {@link Thread#checkAccess}).
+     */
+    private StackTraceElement getCallerFrame() {
+      StackTraceElement[] frames = Thread.currentThread().getStackTrace();
+      for (int i = 1; i < frames.length; i++) {
+        if ("checkAccess".equals(frames[i].getMethodName())) {
+        } else if (!getClass().getName().equals(frames[i].getClassName())) {
+          return frames[i];
+        }
+      }
+      throw new IllegalStateException("Unable to determine calling frame.");
     }
   }
 }

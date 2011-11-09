@@ -53,6 +53,11 @@ class MemcacheServiceImpl implements MemcacheService {
   }
 
   @Override
+  public <T> Map<T, IdentifiableValue> getIdentifiables(Collection<T> keys) {
+    return quietGet(async.getIdentifiables(keys));
+  }
+
+  @Override
   public <T> Map<T, Object> getAll(Collection<T> keys) {
     return quietGet(async.getAll(keys));
   }
@@ -81,6 +86,16 @@ class MemcacheServiceImpl implements MemcacheService {
   @Override
   public boolean putIfUntouched(Object key, IdentifiableValue oldValue, Object newValue) {
     return quietGet(async.putIfUntouched(key, oldValue, newValue));
+  }
+
+  @Override
+  public <T> Set<T> putIfUntouched(Map<T, CasValues> values) {
+    return quietGet(async.putIfUntouched(values));
+  }
+
+  @Override
+  public <T> Set<T> putIfUntouched(Map<T, CasValues> values, Expiration expiration) {
+    return quietGet(async.putIfUntouched(values, expiration));
   }
 
   @Override

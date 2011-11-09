@@ -10,8 +10,8 @@ import java.util.List;
  */
 public final class PutContext extends BaseCallbackContext<Entity> {
 
-  PutContext(AsyncDatastoreService datastoreService, List<Entity> entities) {
-    super(datastoreService, entities);
+  PutContext(CurrentTransactionProvider currentTxnProvider, List<Entity> entities) {
+    super(currentTxnProvider, entities);
   }
 
   @Override

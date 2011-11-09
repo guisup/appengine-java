@@ -2,6 +2,7 @@
 
 package com.google.appengine.tools.development;
 
+import com.google.appengine.api.log.dev.LocalLogService;
 import com.google.appengine.api.utils.SystemProperty;
 import com.google.appengine.tools.info.SdkImplInfo;
 import com.google.appengine.tools.info.SdkInfo;
@@ -26,11 +27,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetAddress;
-import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.UnknownHostException;
 import java.security.Permissions;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -54,10 +55,21 @@ public abstract class AbstractContainerService implements ContainerService {
 
   private static final String LOGGING_CONFIG_FILE = "java.util.logging.config.file";
 
+  private static final String USER_CODE_CLASSPATH_MANAGER_PROP =
+      "devappserver.userCodeClasspathManager";
+
+  private static final String USER_CODE_CLASSPATH = USER_CODE_CLASSPATH_MANAGER_PROP + ".classpath";
+  private static final String USER_CODE_REQUIRES_WEB_INF =
+      USER_CODE_CLASSPATH_MANAGER_PROP + ".requiresWebInf";
+
+  protected String devAppServerVersion;
+  protected File appDir;
+
   /**
-   * The network address on which the server is listening for http requests.
+   * The location of web.xml.  If not provided, defaults to
+   * <appDir>/WEB-INF/web.xml
    */
-  protected String address;
+  protected File webXmlLocation;
 
   /**
    * The hostname on which the server is listening for http requests.
@@ -65,25 +77,20 @@ public abstract class AbstractContainerService implements ContainerService {
   protected String hostName;
 
   /**
+   * The location of appengine-web.xml.  If not provided, defaults to
+   * <appDir>/WEB-INF/appengine-web.xml
+   */
+  protected File appEngineWebXmlLocation;
+
+  /**
+   * The network address on which the server is listening for http requests.
+   */
+  protected String address;
+
+  /**
    * The port on which the server is listening for http requests.
    */
   protected int port;
-
-  /**
-   * The location of web.xml.  If not provided, defaults to
-   * <appDir>/WEB-INF/web.xml
-   */
-  protected String webXmlLocation;
-
-  protected File appDir;
-  protected String devAppServerVersion;
-
-  /**
-   * The reader to use to get an {@link AppEngineWebXml}
-   * instance. If not set, the instance will be constructed from
-   * <appDir>/WEB-INF/appengine-web.xml.
-   */
-  protected AppEngineWebXmlReader appEngineWebXmlReader;
 
   protected AppEngineWebXml appEngineWebXml;
 
@@ -112,13 +119,20 @@ public abstract class AbstractContainerService implements ContainerService {
    */
   private CountDownLatch serverInitLatch;
 
+  /**
+   * Not initialized until {@link #startup()} has been called.
+   */
+  protected ApiProxyLocal apiProxyLocal;
+
+  UserCodeClasspathManager userCodeClasspathManager;
+
   public final LocalServerEnvironment configure(String devAppServerVersion, final File appDir,
-      String webXmlLocation, AppEngineWebXmlReader appEngineWebXmlReader,
-      final String address, int port) {
-    this.appDir = appDir;
+      File webXmlLocation, File appEngineWebXmlLocation, final String address, int port,
+      Map<String, Object> containerConfigProperties) {
     this.devAppServerVersion = devAppServerVersion;
+    this.appDir = appDir;
     this.webXmlLocation = webXmlLocation;
-    this.appEngineWebXmlReader = appEngineWebXmlReader;
+    this.appEngineWebXmlLocation = appEngineWebXmlLocation;
     this.address = address;
     this.port = port;
     this.serverInitLatch = new CountDownLatch(1);
@@ -133,31 +147,39 @@ public abstract class AbstractContainerService implements ContainerService {
       }
     }
 
+    this.userCodeClasspathManager = newUserCodeClasspathProvider(containerConfigProperties);
     return new LocalServerEnvironment() {
+      @Override
       public File getAppDir() {
         return appDir;
       }
 
+      @Override
       public String getAddress() {
         return address;
       }
 
+      @Override
       public String getHostName() {
         return hostName;
       }
 
+      @Override
       public int getPort() {
         return AbstractContainerService.this.port;
       }
 
+      @Override
       public void waitForServerToStart() throws InterruptedException {
         serverInitLatch.await();
       }
 
+      @Override
       public boolean simulateProductionLatencies() {
         return false;
       }
 
+      @Override
       public boolean enforceApiDeadlines() {
         return !Boolean.getBoolean("com.google.appengine.disable_api_deadlines");
       }
@@ -165,10 +187,35 @@ public abstract class AbstractContainerService implements ContainerService {
   }
 
   /**
+   * Constructs a {@link UserCodeClasspathManager} from the given properties.
+   */
+  private static UserCodeClasspathManager newUserCodeClasspathProvider(
+      Map<String, Object> containerConfigProperties) {
+    if (containerConfigProperties.containsKey(USER_CODE_CLASSPATH_MANAGER_PROP)) {
+      final Map<String, Object> userCodeClasspathManagerProps =
+          (Map<String, Object>) containerConfigProperties.get(USER_CODE_CLASSPATH_MANAGER_PROP);
+      return new UserCodeClasspathManager() {
+        @Override
+        public Collection<URL> getUserCodeClasspath(File root) {
+          return (Collection<URL>) userCodeClasspathManagerProps.get(USER_CODE_CLASSPATH);
+        }
+
+        @Override
+        public boolean requiresWebInf() {
+          return (Boolean) userCodeClasspathManagerProps.get(USER_CODE_REQUIRES_WEB_INF);
+        }
+      };
+    }
+    return new WebAppUserCodeClasspathManager();
+  }
+
+  /**
    * This is made final, and detail implementation (that is specific to any
    * particular servlet container) goes to individual "template" methods.
    */
+  @Override
   public final void startup() throws Exception {
+    apiProxyLocal = (ApiProxyLocal) ApiProxy.getDelegate();
     File webAppDir = initContext();
     loadAppEngineWebXml(webAppDir);
 
@@ -177,6 +224,7 @@ public abstract class AbstractContainerService implements ContainerService {
     serverInitLatch.countDown();
   }
 
+  @Override
   public final void shutdown() throws Exception {
     stopHotDeployScanner();
     stopContainer();
@@ -184,6 +232,7 @@ public abstract class AbstractContainerService implements ContainerService {
   }
 
   /** {@inheritdoc} */
+  @Override
   public Map<String, String> getServiceProperties() {
     return ImmutableMap.of("appengine.dev.inbound-services",
                            Join.join(",", appEngineWebXml.getInboundServices()));
@@ -239,11 +288,6 @@ public abstract class AbstractContainerService implements ContainerService {
   }
 
   @Override
-  public File getAppDirectory() {
-    return appDir;
-  }
-
-  @Override
   public int getPort() {
     return port;
   }
@@ -263,21 +307,32 @@ public abstract class AbstractContainerService implements ContainerService {
   }
 
   protected void loadAppEngineWebXml(File webAppDir) {
-    if (appEngineWebXmlReader == null) {
-      appEngineWebXmlReader =
-          new AppEngineWebXmlReader(webAppDir.getAbsolutePath());
+
+    WebXmlReader webXmlReader;
+    if (webXmlLocation == null) {
+      webXmlReader = new WebXmlReader(webAppDir.getAbsolutePath());
+      webXmlLocation = new File(webXmlReader.getFilename());
+    } else {
+      webXmlReader = new WebXmlReader(webXmlLocation.getParent(), webXmlLocation.getName());
+    }
+
+    AppEngineWebXmlReader appEngineWebXmlReader;
+    if (appEngineWebXmlLocation == null) {
+      appEngineWebXmlReader = new AppEngineWebXmlReader(webAppDir.getAbsolutePath());
+      appEngineWebXmlLocation = new File(appEngineWebXmlReader.getFilename());
+    } else {
+      appEngineWebXmlReader = new AppEngineWebXmlReader(
+          appEngineWebXmlLocation.getParent(), appEngineWebXmlLocation.getName());
     }
 
     AppYaml.convert(new File(appDir, "WEB-INF"),
-                    appEngineWebXmlReader.getFilename(),
-                    (webXmlLocation == null ?
-                     new File(appDir, "WEB-INF/web.xml").getAbsolutePath() :
-                     webXmlLocation));
+        appEngineWebXmlReader.getFilename(), webXmlLocation.getAbsolutePath());
+
     appEngineWebXml = appEngineWebXmlReader.readAppEngineWebXml();
     if (appEngineWebXml.getAppId() == null || appEngineWebXml.getAppId().length() == 0) {
       appEngineWebXml.setAppId("no_app_id");
     }
-    webXml = new WebXmlReader(webAppDir.getAbsolutePath()).readWebXml();
+    webXml = webXmlReader.readWebXml();
     staticInitialize(appEngineWebXml, appDir);
     webXml.validate();
 
@@ -312,26 +367,7 @@ public abstract class AbstractContainerService implements ContainerService {
     List<URL> appUrls = new ArrayList<URL>();
 
     appUrls.addAll(SdkImplInfo.getAgentRuntimeLibs());
-
-    try {
-      File classes = new File(new File(root, "WEB-INF"), "classes");
-      if (classes.exists()) {
-        appUrls.add(classes.toURL());
-      }
-    } catch (MalformedURLException ex) {
-      log.log(Level.WARNING, "Could not add WEB-INF/classes", ex);
-    }
-
-    File libDir = new File(new File(root, "WEB-INF"), "lib");
-    if (libDir.isDirectory()) {
-      for (File file : libDir.listFiles()) {
-        try {
-          appUrls.add(file.toURL());
-        } catch (MalformedURLException ex) {
-          log.log(Level.WARNING, "Could not get URL for file: " + file, ex);
-        }
-      }
-    }
+    appUrls.addAll(userCodeClasspathManager.getUserCodeClasspath(root));
     for (URL url : SdkImplInfo.getUserJspLibs()) {
       appUrls.add(url);
     }
@@ -363,7 +399,7 @@ public abstract class AbstractContainerService implements ContainerService {
   /**
    * Updates the JVM's logging configuration to include both the
    * user's custom logging configuration and the SDK's internal
-   * logging configuration.
+   * logging configurations.
    *
    * @param systemProperties
    * @param userSystemProperties
@@ -390,6 +426,11 @@ public abstract class AbstractContainerService implements ContainerService {
       LogManager.getLogManager().readConfiguration(new ByteArrayInputStream(out.toByteArray()));
 
       Logger root = Logger.getLogger("");
+
+      ApiProxyLocal proxy = (ApiProxyLocal) ApiProxy.getDelegate();
+      LocalLogService logService = (LocalLogService) proxy.getService(LocalLogService.PACKAGE);
+      root.addHandler(logService.getLogHandler());
+
       Handler[] handlers = root.getHandlers();
       if (handlers != null) {
         for (Handler handler : handlers) {
@@ -477,14 +518,17 @@ public abstract class AbstractContainerService implements ContainerService {
       super(appEngineWebXml);
     }
 
+    @Override
     public String getEmail() {
       return null;
     }
 
+    @Override
     public boolean isLoggedIn() {
       return false;
     }
 
+    @Override
     public boolean isAdmin() {
       return false;
     }

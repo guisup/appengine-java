@@ -122,8 +122,8 @@ abstract class BaseDatastoreServiceImpl {
     Future<DatastorePb.Transaction> future =
         DatastoreApiHelper.makeAsyncCall(apiConfig, "BeginTransaction", request, remoteTxn);
 
-    Transaction localTxn =
-        new TransactionImpl(apiConfig, request.getApp(), future, defaultTxnProvider);
+    Transaction localTxn = new TransactionImpl(apiConfig, request.getApp(), future,
+        defaultTxnProvider, datastoreServiceConfig.getDatastoreCallbacks());
 
     defaultTxnProvider.push(localTxn);
     return localTxn;

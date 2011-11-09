@@ -52,10 +52,22 @@ class FileServiceImpl implements FileService {
   static final String PARAMETER_MIME_TYPE = "content_type";
   static final String PARAMETER_BLOB_INFO_UPLOADED_FILE_NAME = "file_name";
   static final String DEFAULT_MIME_TYPE = "application/octet-stream";
+  static final String FILESYSTEM_GS = AppEngineFile.FileSystem.GS.getName();
+  static final String GS_FILESYSTEM_PREFIX = "/gs/";
+  static final String GS_PARAMETER_MIME_TYPE = "content_type";
+  static final String GS_PARAMETER_FILENAME = "filename";
+  static final String GS_PARAMETER_CANNED_ACL = "acl";
+  static final String GS_PARAMETER_CONTENT_ENCODING = "content_encoding";
+  static final String GS_PARAMETER_CONTENT_DISPOSITION = "content_disposition";
+  static final String GS_PARAMETER_CACHE_CONTROL = "cache_control";
+  static final String GS_USER_METADATA_PREFIX = "x-goog-meta-";
+
+  static final String GS_DEFAULT_MIME_TYPE = "application/octet-stream";
+  static final String GS_DEFAULT_ACL = "private";
 
   private static final String BLOB_INFO_CREATION_HANDLE_PROPERTY = "creation_handle";
-
-  private static final String CREATION_HANDLE_PREFIX = "writable:";
+  static final String GS_CREATION_HANDLE_PREFIX = "writable:";
+  static final String CREATION_HANDLE_PREFIX = "writable:";
 
   /**
    * {@inheritDoc}
@@ -83,6 +95,51 @@ class FileServiceImpl implements FileService {
     String filePath = create(FILESYSTEM_BLOBSTORE, null, ContentType.RAW, params);
     AppEngineFile file = new AppEngineFile(filePath);
     if (!file.getNamePart().startsWith(CREATION_HANDLE_PREFIX)) {
+      throw new RuntimeException("Expected creation handle: " + file.getFullPath());
+    }
+    return file;
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public AppEngineFile createNewGSFile(final GSFileOptions options) throws IOException {
+    if (options.fileName == null || options.fileName.isEmpty() ||
+        !options.fileName.startsWith(GS_FILESYSTEM_PREFIX)) {
+      throw new IllegalArgumentException("Invalid fileName, should be of the form: /gs/bucket/key");
+    }
+    Map<String, String> params = new TreeMap<String, String>();
+    params.put(GS_PARAMETER_FILENAME,
+        options.fileName.substring(GS_FILESYSTEM_PREFIX.length() - 1));
+    params.put(GS_PARAMETER_MIME_TYPE, options.mimeType);
+    params.put(GS_PARAMETER_CANNED_ACL, options.acl);
+    if (options.cacheControl != null && !options.cacheControl.trim().isEmpty()) {
+      params.put(GS_PARAMETER_CACHE_CONTROL, options.cacheControl);
+    }
+    if (options.contentEncoding != null && !options.contentEncoding.trim().isEmpty()) {
+      params.put(GS_PARAMETER_CONTENT_ENCODING, options.contentEncoding);
+    }
+    if (options.contentDisposition != null && !options.contentDisposition.trim().isEmpty()) {
+      params.put(GS_PARAMETER_CONTENT_DISPOSITION, options.contentDisposition);
+    }
+    if (options.userMetadata != null) {
+      for (String key : options.userMetadata.keySet()) {
+        if (key == null || key.isEmpty()) {
+          throw new IllegalArgumentException(
+            "Empty or null key in userMetadata");
+        }
+        String value = options.userMetadata.get(key);
+        if (value == null || value.isEmpty()) {
+          throw new IllegalArgumentException(
+            "Empty or null value in userMetadata for key: " + key);
+        }
+        params.put(GS_USER_METADATA_PREFIX + key, value);
+      }
+    }
+    AppEngineFile file = new AppEngineFile(
+        create(FILESYSTEM_GS, options.fileName, ContentType.RAW, params));
+    if (!file.getNamePart().startsWith(GS_CREATION_HANDLE_PREFIX)) {
       throw new RuntimeException("Expected creation handle: " + file.getFullPath());
     }
     return file;

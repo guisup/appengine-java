@@ -8,12 +8,23 @@ package com.google.appengine.tools.development;
  */
 public interface LocalServiceContext {
 
-  /** Fetches the local server environment. */
+  /**
+   * Fetches the local server environment.
+   */
   LocalServerEnvironment getLocalServerEnvironment();
 
   /**
-   * Fetches the clock that local services should use to determine the current
-   * time.
+   * Fetches the local Capabilities environment
+   */
+  LocalCapabilitiesEnvironment getLocalCapabilitiesEnvironment();
+
+  /**
+   * Fetches the clock that local services should use to determine the current time.
    */
   Clock getClock();
+
+  /**
+   * Retrieves the local service identified by the package name.
+   */
+  LocalRpcService getLocalService(String packageName);
 }

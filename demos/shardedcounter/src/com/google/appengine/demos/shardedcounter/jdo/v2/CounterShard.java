@@ -49,8 +49,8 @@ public class CounterShard {
 
   public CounterShard(String counterName, int shardNumber, int count) {
     this.counterName = counterName;
-    this.shardNumber = new Integer(shardNumber);
-    this.count = new Integer(count);
+    this.shardNumber = Integer.valueOf(shardNumber);
+    this.count = Integer.valueOf(count);
   }
 
   public Long getId() {
@@ -74,6 +74,6 @@ public class CounterShard {
   }
 
   public void increment(int amount) {
-    count = new Integer(count.intValue() + amount);
+    count = Integer.valueOf(count.intValue() + amount);
   }
 }

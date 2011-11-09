@@ -2,6 +2,7 @@
 
 package com.google.appengine.tools.development;
 
+import com.google.appengine.api.capabilities.CapabilityStatus;
 import com.google.appengine.tools.development.LocalRpcService.Status;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.api.ApiProxy.CallNotFoundException;
@@ -36,9 +37,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Implements ApiProxy.Delegate such that the requests are dispatched
- * to local service implementations. Used for both the
- * {@link com.google.appengine.tools.development.DevAppServer}
+ * Implements ApiProxy.Delegate such that the requests are dispatched to local service
+ * implementations. Used for both the {@link com.google.appengine.tools.development.DevAppServer}
  * and for unit testing services.
  *
  */
@@ -56,11 +56,18 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
 
   static final String IS_OFFLINE_REQUEST_KEY = "com.google.appengine.request.offline";
 
-  /** Implementation of the {@link LocalServiceContext} interface */
+  /**
+   * Implementation of the {@link LocalServiceContext} interface
+   */
   private class LocalServiceContextImpl implements LocalServiceContext {
 
-    /** The local server environment */
+    /**
+     * The local server environment
+     */
     private final LocalServerEnvironment localServerEnvironment;
+
+    private final LocalCapabilitiesEnvironment localCapabilitiesEnvironment =
+        new LocalCapabilitiesEnvironment(System.getProperties());
 
     /**
      * Creates a new context, for the given application.
@@ -71,12 +78,24 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
       this.localServerEnvironment = localServerEnvironment;
     }
 
+    @Override
     public LocalServerEnvironment getLocalServerEnvironment() {
       return localServerEnvironment;
     }
 
+    @Override
+    public LocalCapabilitiesEnvironment getLocalCapabilitiesEnvironment() {
+      return localCapabilitiesEnvironment;
+    }
+
+    @Override
     public Clock getClock() {
       return clock;
+    }
+
+    @Override
+    public LocalRpcService getLocalService(String packageName) {
+      return ApiProxyLocalImpl.this.getService(packageName);
     }
   }
 
@@ -116,7 +135,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   }
 
   public byte[] makeSyncCall(ApiProxy.Environment environment, String packageName,
-                             String methodName, byte[] requestBytes) {
+      String methodName, byte[] requestBytes) {
     ApiProxy.ApiConfig apiConfig = null;
     Double deadline = (Double) environment.getAttributes().get(API_DEADLINE_KEY);
     if (deadline != null) {
@@ -144,16 +163,16 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   }
 
   public Future<byte[]> makeAsyncCall(Environment environment, String packageName,
-                                      String methodName, byte[] requestBytes, ApiProxy.ApiConfig apiConfig) {
+      String methodName, byte[] requestBytes, ApiProxy.ApiConfig apiConfig) {
     return doAsyncCall(environment, packageName, methodName, requestBytes, apiConfig);
   }
 
   public List<Thread> getRequestThreads(Environment environment) {
-    return Arrays.asList(new Thread[] { Thread.currentThread() });
+    return Arrays.asList(new Thread[]{Thread.currentThread()});
   }
 
   private Future<byte[]> doAsyncCall(Environment environment, final String packageName,
-                                     final String methodName, byte[] requestBytes, ApiProxy.ApiConfig apiConfig) {
+      final String methodName, byte[] requestBytes, ApiProxy.ApiConfig apiConfig) {
     Semaphore semaphore = (Semaphore) environment.getAttributes().get(
         LocalEnvironment.API_CALL_SEMAPHORE);
     if (semaphore != null) {
@@ -190,7 +209,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   }
 
   private double resolveDeadline(String packageName, ApiProxy.ApiConfig apiConfig,
-                                 boolean isOffline) {
+      boolean isOffline) {
     LocalRpcService service = getService(packageName);
     Double deadline = null;
     if (apiConfig != null) {
@@ -214,6 +233,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   }
 
   private class PrivilegedApiAction implements PrivilegedAction<Future<byte[]>> {
+
     private final Callable<byte[]> callable;
     private final AsyncApiCall asyncApiCall;
 
@@ -261,11 +281,9 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   }
 
   /**
-   * Convert the specified byte array to a protocol buffer
-   * representation of the specified type.  This type can either be a
-   * subclass of {@link ProtocolMessage} (a legacy protocol buffer
-   * implementation), or {@link Message} (the open-sourced protocol
-   * buffer implementation).
+   * Convert the specified byte array to a protocol buffer representation of the specified type.
+   * This type can either be a subclass of {@link ProtocolMessage} (a legacy protocol buffer
+   * implementation), or {@link Message} (the open-sourced protocol buffer implementation).
    */
   private <T> T convertBytesToPb(byte[] bytes, Class<T> requestClass)
       throws IllegalAccessException, InstantiationException,
@@ -283,10 +301,9 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   }
 
   /**
-   * Convert the protocol buffer representation to a byte array.  The
-   * object can either be an instance of {@link ProtocolMessage} (a
-   * legacy protocol buffer implementation), or {@link Message} (the
-   * open-sourced protocol buffer implementation).
+   * Convert the protocol buffer representation to a byte array.  The object can either be an
+   * instance of {@link ProtocolMessage} (a legacy protocol buffer implementation), or {@link
+   * Message} (the open-sourced protocol buffer implementation).
    */
   private byte[] convertPbToBytes(Object object) {
     if (object instanceof ProtocolMessage) {
@@ -305,10 +322,9 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   /**
    * Resets the service properties to {@code properties}.
    *
-   * @param properties a maybe {@code null} set of properties for
-   * local services.
+   * @param properties a maybe {@code null} set of properties for local services.
    */
-  public void setProperties(Map<String,String> properties) {
+  public void setProperties(Map<String, String> properties) {
     this.properties.clear();
     if (properties != null) {
       this.appendProperties(properties);
@@ -320,13 +336,12 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
    *
    * @param properties a set of properties to append for local services.
    */
-  public void appendProperties(Map<String,String> properties) {
+  public void appendProperties(Map<String, String> properties) {
     this.properties.putAll(properties);
   }
 
   /**
-   * Stops all services started by this ApiProxy and releases
-   * all of its resources.
+   * Stops all services started by this ApiProxy and releases all of its resources.
    */
   public void stop() {
     for (LocalRpcService service : serviceCache.values()) {
@@ -372,6 +387,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   }
 
   private class AsyncApiCall implements Callable<byte[]> {
+
     private final Environment environment;
     private final String packageName;
     private final String methodName;
@@ -402,6 +418,13 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
         LocalRpcService service = getService(packageName);
         if (service == null) {
           throw new CallNotFoundException(packageName, methodName);
+        }
+        LocalCapabilitiesEnvironment capEnv = context.getLocalCapabilitiesEnvironment();
+        CapabilityStatus capabilityStatus = capEnv
+            .getStatusFromMethodName(packageName, methodName);
+        if (!CapabilityStatus.ENABLED.equals(capabilityStatus)) {
+          throw new ApiProxy.CapabilityDisabledException(
+              "Setup in local configuration.", packageName, methodName);
         }
 
         if (requestBytes.length > getMaxApiRequestSize(service)) {
@@ -441,8 +464,8 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
     }
 
     /**
-     * Synchronized method that ensures the semaphore that was claimed for this
-     * API call only gets released once.
+     * Synchronized method that ensures the semaphore that was claimed for this API call only gets
+     * released once.
      */
     synchronized void tryReleaseSemaphore() {
       if (!released && semaphore != null) {
@@ -453,21 +476,17 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   }
 
   /**
-   * Method needs to be synchronized to ensure that we don't end up starting
-   * multiple instances of the same service.  As an example, we've seen a
-   * race condition where the local datastore service has not yet been
-   * initialized and two datastore requests come in at the exact same time.
-   * The first request looks in the service cache, doesn't find it, starts
-   * a new local datastore service, registers it in the service cache,
-   * and uses that local datastore service
-   * to handle the first request.  Meanwhile the second request looks in the
-   * service cache, doesn't find it, starts a new local datastore service,
-   * registers it in the service cache (stomping on the original one), and
-   * uses that local datastore service to handle the second request.  If both
-   * of these requests start txns we can end up with 2 requests receiving the
-   * same txn id, and that yields all sorts of exciting behavior.  So,
-   * we synchronize this method to ensure that we only register a single
-   * instance of each service type.
+   * Method needs to be synchronized to ensure that we don't end up starting multiple instances of
+   * the same service.  As an example, we've seen a race condition where the local datastore service
+   * has not yet been initialized and two datastore requests come in at the exact same time. The
+   * first request looks in the service cache, doesn't find it, starts a new local datastore
+   * service, registers it in the service cache, and uses that local datastore service to handle the
+   * first request.  Meanwhile the second request looks in the service cache, doesn't find it,
+   * starts a new local datastore service, registers it in the service cache (stomping on the
+   * original one), and uses that local datastore service to handle the second request.  If both of
+   * these requests start txns we can end up with 2 requests receiving the same txn id, and that
+   * yields all sorts of exciting behavior.  So, we synchronize this method to ensure that we only
+   * register a single instance of each service type.
    */
   public synchronized final LocalRpcService getService(final String pkg) {
     LocalRpcService cachedService = serviceCache.get(pkg);
@@ -484,7 +503,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   }
 
   private LocalRpcService startServices(String pkg) {
-    @SuppressWarnings({ "unchecked", "sunapi" })
+    @SuppressWarnings({"unchecked", "sunapi"})
     Iterator<LocalRpcService> services = sun.misc.Service.providers(LocalRpcService.class,
         ApiProxyLocalImpl.class.getClassLoader());
     while (services.hasNext()) {
@@ -525,6 +544,7 @@ class ApiProxyLocalImpl implements ApiProxyLocal {
   }
 
   private static class DaemonThreadFactory implements ThreadFactory {
+
     private final ThreadFactory parent;
 
     public DaemonThreadFactory(ThreadFactory parent) {

@@ -5,14 +5,17 @@ import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.EntityTranslator;
 import com.google.appengine.api.prospectivesearch.ErrorPb.*;
 import com.google.appengine.api.prospectivesearch.ProspectiveSearchPb.*;
-import com.google.appengine.api.utils.SystemProperty;
 import com.google.apphosting.api.ApiProxy;
 import com.google.common.util.Base64;
 import com.google.common.util.Base64DecoderException;
 import com.google.io.protocol.ProtocolMessage;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
 import javax.servlet.http.HttpServletRequest;
 
 /**
@@ -25,6 +28,8 @@ import javax.servlet.http.HttpServletRequest;
 class ProspectiveSearchServiceImpl implements ProspectiveSearchService {
 
   static final String PACKAGE = "matcher";
+
+  static final Logger LOGGER = Logger.getLogger(ProspectiveSearchServiceImpl.class.getName());
 
   @Override
   public void subscribe(String topic,
@@ -158,10 +163,6 @@ class ProspectiveSearchServiceImpl implements ProspectiveSearchService {
       req.setTopicStart(topicStart);
     }
     req.setMaxResults(maxResults);
-    String appId = SystemProperty.applicationId.get();
-    if (appId != null) {
-      req.setAppId(appId);
-    }
     ListTopicsResponse rsp = new ListTopicsResponse();
     doCall("ListTopics", req, rsp);
     return rsp.topics();
@@ -170,9 +171,10 @@ class ProspectiveSearchServiceImpl implements ProspectiveSearchService {
   @Override
   public Entity getDocument(HttpServletRequest matchCallbackPost) {
     try {
-      byte [] docBuf = Base64.decode(matchCallbackPost.getParameter("document").getBytes());
+      byte [] docBuf = Base64.decodeWebSafe(matchCallbackPost.getParameter("document").getBytes());
       return EntityTranslator.createFromPbBytes(docBuf);
     } catch (Base64DecoderException e) {
+      LOGGER.log(Level.WARNING, "Could not decode returned matching message.", e);
       return null;
     }
   }

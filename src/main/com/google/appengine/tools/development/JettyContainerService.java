@@ -2,29 +2,33 @@
 
 package com.google.appengine.tools.development;
 
+import com.google.appengine.api.log.dev.DevLogHandler;
+import com.google.appengine.api.log.dev.LocalLogService;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.utils.config.AppEngineConfigException;
 import com.google.apphosting.utils.config.AppEngineWebXml;
-import com.google.apphosting.utils.jetty.DevAppEngineWebAppContext;
 import com.google.apphosting.utils.jetty.JettyLogger;
 import com.google.apphosting.utils.jetty.StubSessionManager;
 
+import org.mortbay.jetty.webapp.Configuration;
+import org.mortbay.jetty.Handler;
 import org.mortbay.jetty.Server;
 import org.mortbay.jetty.handler.HandlerWrapper;
 import org.mortbay.jetty.nio.SelectChannelConnector;
+import org.mortbay.jetty.webapp.JettyWebXmlConfiguration;
 import org.mortbay.jetty.webapp.WebAppContext;
 import org.mortbay.resource.Resource;
 import org.mortbay.util.Scanner;
 
 import java.io.File;
-import java.io.IOException;
 import java.io.FilenameFilter;
+import java.io.IOException;
 import java.net.URL;
-import java.util.Set;
+import java.security.Permissions;
+import java.util.Date;
+import java.util.concurrent.Semaphore;
 import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.concurrent.Semaphore;
-import java.security.Permissions;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
@@ -51,8 +55,8 @@ public class JettyContainerService extends AbstractContainerService {
    * <p>This is a subset of:
    *   org.mortbay.jetty.webapp.WebAppContext.__dftConfigurationClasses
    *
-   * <p>Specifically, we've removed {@link JettyWebXmlConfiguration} which allows
-   * users to use {@code jetty-web.xml} files.
+   * <p>Specifically, we've removed {@link JettyWebXmlConfiguration} which
+   * allows users to use {@code jetty-web.xml} files.
    */
   private static final String CONFIG_CLASSES[] = new String[] {
         "org.mortbay.jetty.webapp.WebXmlConfiguration",
@@ -117,10 +121,10 @@ public class JettyContainerService extends AbstractContainerService {
 
   @Override
   protected File initContext() throws IOException {
-    this.context = new DevAppEngineWebAppContext(appDir, devAppServerVersion);
+    this.context = new DevAppEngineWebAppContext(appDir, devAppServerVersion, apiProxyLocal);
     this.appContext = new JettyAppContext();
 
-    context.setDescriptor(webXmlLocation);
+    context.setDescriptor(webXmlLocation == null ? null : webXmlLocation.getAbsolutePath());
 
     context.setDefaultsDescriptor(WEB_DEFAULTS_XML);
 
@@ -231,7 +235,7 @@ public class JettyContainerService extends AbstractContainerService {
    * To minimize the overhead, we point the scanner right to the single file in question.
    */
   private File getScanTarget() throws Exception {
-    if (appDir.isFile()) {
+    if (appDir.isFile() || context.getWebInf() == null) {
       return appDir;
     } else {
       return new File(context.getWebInf().getFile().getPath()
@@ -279,7 +283,11 @@ public class JettyContainerService extends AbstractContainerService {
   private File determineAppRoot() throws IOException {
     Resource webInf = context.getWebInf();
     if (webInf == null) {
-      throw new AppEngineConfigException("Supplied application has to contain WEB-INF directory.");
+      if (userCodeClasspathManager.requiresWebInf()) {
+        throw new AppEngineConfigException(
+            "Supplied application has to contain WEB-INF directory.");
+      }
+      return appDir;
     }
     return webInf.getFile().getParentFile();
   }
@@ -288,7 +296,7 @@ public class JettyContainerService extends AbstractContainerService {
    * {@code ApiProxyHandler} wraps around an existing {@link Handler}
    * and surrounds each top-level request (i.e. not includes or
    * forwards) with a try finally block that maintains the {@link
-   * ApiProxy.Environment} {@link ThreadLocal}.
+   * com.google.apphosting.api.ApiProxy.Environment} {@link ThreadLocal}.
    */
   private class ApiProxyHandler extends HandlerWrapper {
     private final AppEngineWebXml appEngineWebXml;
@@ -304,6 +312,7 @@ public class JettyContainerService extends AbstractContainerService {
                        HttpServletResponse response,
                        int dispatch) throws IOException, ServletException {
       if (dispatch == REQUEST) {
+        long startTimeUsec = System.currentTimeMillis() * 1000;
         Semaphore semaphore = new Semaphore(MAX_SIMULTANEOUS_API_CALLS);
 
         LocalEnvironment env = new LocalHttpRequestEnvironment(appEngineWebXml, request);
@@ -325,18 +334,26 @@ public class JettyContainerService extends AbstractContainerService {
           } catch (InterruptedException ex) {
             log.log(Level.WARNING, "Interrupted while waiting for API calls to complete:", ex);
           }
-          Set<RequestEndListener> listeners = (Set<RequestEndListener>) env.getAttributes().get(
-              LocalEnvironment.REQUEST_END_LISTENERS);
-          for (RequestEndListener listener : listeners) {
-            try {
-              listener.onRequestEnd(env);
-            } catch (Exception ex) {
-              log.log(Level.WARNING,
-                  "Exception while attempting to invoke RequestEndListener " + listener.getClass()
-                      + ": ", ex);
-            }
+          env.callRequestEndListeners();
+
+          try {
+            String appId = env.getAppId();
+            String versionId = env.getVersionId();
+            String requestId = DevLogHandler.getRequestId();
+            long endTimeUsec = new Date().getTime() * 1000;
+
+            LocalLogService logService = (LocalLogService)
+                apiProxyLocal.getService(LocalLogService.PACKAGE);
+
+            logService.addRequestInfo(appId, versionId, requestId,
+                request.getRemoteAddr(), request.getRemoteUser(),
+                startTimeUsec, endTimeUsec, request.getMethod(),
+                request.getRequestURI(), request.getProtocol(),
+                request.getContentLength(), request.getHeader("User-Agent"),
+                true);
+          } finally {
+            ApiProxy.clearEnvironmentForCurrentThread();
           }
-          ApiProxy.clearEnvironmentForCurrentThread();
         }
       } else {
         super.handle(target, request, response, dispatch);

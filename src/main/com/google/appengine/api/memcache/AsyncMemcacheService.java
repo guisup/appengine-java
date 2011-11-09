@@ -2,6 +2,7 @@
 
 package com.google.appengine.api.memcache;
 
+import com.google.appengine.api.memcache.MemcacheService.CasValues;
 import com.google.appengine.api.memcache.MemcacheService.IdentifiableValue;
 import com.google.appengine.api.memcache.MemcacheService.SetPolicy;
 
@@ -26,6 +27,11 @@ public interface AsyncMemcacheService extends BaseMemcacheService {
    * @see MemcacheService#getIdentifiable(Object)
    */
   Future<IdentifiableValue> getIdentifiable(Object key);
+
+  /**
+   * @see MemcacheService#getIdentifiables(Collection)
+   */
+  <T> Future<Map<T, IdentifiableValue>> getIdentifiables(Collection<T> keys);
 
   /**
    * @see MemcacheService#contains(Object)
@@ -78,6 +84,16 @@ public interface AsyncMemcacheService extends BaseMemcacheService {
    * @see MemcacheService#putIfUntouched(Object, IdentifiableValue, Object)
    */
   Future<Boolean> putIfUntouched(Object key, IdentifiableValue oldValue, Object newValue);
+
+  /**
+   * @see MemcacheService#putIfUntouched(Map)
+   */
+  <T> Future<Set<T>> putIfUntouched(Map<T, CasValues> values);
+
+  /**
+   * @see MemcacheService#putIfUntouched(Map, Expiration)
+   */
+  <T> Future<Set<T>> putIfUntouched(Map<T, CasValues> values, Expiration expiration);
 
   /**
    * @see MemcacheService#delete(Object)

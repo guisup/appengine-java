@@ -27,6 +27,9 @@ class FileReadChannelImpl implements FileReadChannel {
     if (null == fs) {
       throw new NullPointerException("fs is null");
     }
+    if (!f.isReadable()) {
+      throw new IllegalArgumentException("file is not readable");
+    }
   }
 
   private void checkOpen() throws ClosedChannelException {

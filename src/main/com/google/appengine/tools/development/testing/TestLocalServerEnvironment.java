@@ -8,7 +8,7 @@ import java.io.File;
 /**
  * {@link LocalServerEnvironment} implementation used for local service tests.
  *
-*/
+ */
 class TestLocalServerEnvironment implements LocalServerEnvironment {
 
   private final boolean enforceApiDeadlines;

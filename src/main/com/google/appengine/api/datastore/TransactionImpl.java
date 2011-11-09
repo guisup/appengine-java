@@ -9,6 +9,7 @@ import com.google.apphosting.api.DatastorePb;
 import com.google.apphosting.api.DatastorePb.CommitResponse;
 import com.google.io.protocol.ProtocolMessage;
 
+import java.util.List;
 import java.util.concurrent.Future;
 
 /**
@@ -20,7 +21,7 @@ import java.util.concurrent.Future;
  * the result of the future.
  *
  */
-class TransactionImpl implements Transaction {
+class TransactionImpl implements Transaction, CurrentTransactionProvider {
 
   enum TransactionState {BEGUN, COMPLETION_IN_PROGRESS, COMMITTED, ROLLED_BACK, ERROR}
 
@@ -36,14 +37,41 @@ class TransactionImpl implements Transaction {
 
   private final TransactionStack txnStack;
 
+  private final DatastoreCallbacks callbacks;
+
   TransactionState state = TransactionState.BEGUN;
 
+  /**
+   * A {@link PostOpFuture} implementation that runs both post put and post
+   * delete callbacks.
+   */
+  private class PostCommitFuture extends PostOpFuture<Void> {
+    private final List<Entity> putEntities;
+    private final List<Key> deletedKeys;
+
+    private PostCommitFuture(
+        List<Entity> putEntities, List<Key> deletedKeys, Future<Void> delegate) {
+      super(delegate, callbacks);
+      this.putEntities = putEntities;
+      this.deletedKeys = deletedKeys;
+    }
+
+    @Override
+    void executeCallbacks() {
+      PutContext putContext = new PutContext(TransactionImpl.this, putEntities);
+      callbacks.executePostPutCallbacks(putContext);
+      DeleteContext deleteContext = new DeleteContext(TransactionImpl.this, deletedKeys);
+      callbacks.executePostDeleteCallbacks(deleteContext);
+    }
+  }
+
   TransactionImpl(ApiConfig apiConfig, String app, Future<DatastorePb.Transaction> future,
-      TransactionStack txnStack) {
+      TransactionStack txnStack, DatastoreCallbacks callbacks) {
     this.apiConfig = apiConfig;
     this.app = app;
     this.future = future;
     this.txnStack = txnStack;
+    this.callbacks = callbacks;
   }
 
   /**
@@ -81,7 +109,8 @@ class TransactionImpl implements Transaction {
         FutureHelper.quietGet(f);
       }
       Future<CommitResponse> future = makeAsyncCall("Commit", new CommitResponse());
-      return new FutureWrapper<CommitResponse, Void>(future) {
+      return new PostCommitFuture(txnStack.getPutEntities(this), txnStack.getDeletedKeys(this),
+          new FutureWrapper<CommitResponse, Void>(future) {
         @Override
         protected Void wrap(CommitResponse ignore) throws Exception {
           state = TransactionState.COMMITTED;
@@ -93,7 +122,7 @@ class TransactionImpl implements Transaction {
           state = TransactionState.ERROR;
           return cause;
         }
-      };
+      });
     } finally {
       txnStack.remove(this);
     }
@@ -167,6 +196,11 @@ class TransactionImpl implements Transaction {
   @Override
   public boolean isActive() {
     return state == TransactionState.BEGUN || state == TransactionState.COMPLETION_IN_PROGRESS;
+  }
+
+  @Override
+  public Transaction getCurrentTransaction(Transaction defaultValue) {
+    return this;
   }
 
   /**

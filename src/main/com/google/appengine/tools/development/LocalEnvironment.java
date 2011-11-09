@@ -6,10 +6,13 @@ import com.google.appengine.api.NamespaceManager;
 import com.google.apphosting.api.ApiProxy;
 import com.google.apphosting.utils.config.AppEngineWebXml;
 
+import java.util.Collection;
 import java.util.Collections;
-import java.util.concurrent.ConcurrentMap;
+import java.util.Date;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
@@ -40,6 +43,14 @@ abstract public class LocalEnvironment implements ApiProxy.Environment {
   public static final String REQUEST_ID = "com.google.appengine.tools.development.request_id";
 
   /**
+   * The name of an {@link #getAttributes() attribute} that contains a
+   * a {@link Date} object representing the time this request was
+   * started.
+   */
+  public static final String START_TIME_ATTR =
+      "com.google.appengine.tools.development.start_time";
+
+  /**
    * The name of an {@link #getAttributes() attribute} that contains a {@code
    * Set<RequestEndListener>}. The set of {@link RequestEndListener
    * RequestEndListeners} is populated by from within the service calls. The
@@ -48,16 +59,28 @@ abstract public class LocalEnvironment implements ApiProxy.Environment {
   public static final String REQUEST_END_LISTENERS =
       "com.google.appengine.tools.development.request_end_listeners";
 
+  private static final String REQUEST_THREAD_FACTORY_ATTR =
+      "com.google.appengine.api.ThreadManager.REQUEST_THREAD_FACTORY";
+
+  private static final String BACKGROUND_THREAD_FACTORY_ATTR =
+      "com.google.appengine.api.ThreadManager.BACKGROUND_THREAD_FACTORY";
+
   private final AppEngineWebXml appEngineWebXml;
+
+  private final Collection<RequestEndListener> requestEndListeners;
 
   protected final ConcurrentMap<String, Object> attributes =
       new ConcurrentHashMap<String, Object>();
 
   protected LocalEnvironment(AppEngineWebXml appEngineWebXml) {
     this.appEngineWebXml = appEngineWebXml;
+    requestEndListeners =
+        Collections.newSetFromMap(new ConcurrentHashMap<RequestEndListener, Boolean>(10));
     attributes.put(REQUEST_ID, generateRequestId());
-    attributes.put(REQUEST_END_LISTENERS,
-        Collections.newSetFromMap(new ConcurrentHashMap<RequestEndListener, Boolean>(10)));
+    attributes.put(REQUEST_END_LISTENERS, requestEndListeners);
+    attributes.put(START_TIME_ATTR, new Date());
+    attributes.put(REQUEST_THREAD_FACTORY_ATTR, new RequestThreadFactory());
+    attributes.put(BACKGROUND_THREAD_FACTORY_ATTR, new BackgroundThreadFactory(appEngineWebXml));
   }
 
   private static final String REQUEST_ID_PREFIX = "" + System.currentTimeMillis();
@@ -87,5 +110,17 @@ abstract public class LocalEnvironment implements ApiProxy.Environment {
 
   public ConcurrentMap<String, Object> getAttributes() {
     return attributes;
+  }
+
+  void callRequestEndListeners() {
+    for (RequestEndListener listener : requestEndListeners) {
+      try {
+        listener.onRequestEnd(this);
+      } catch (Exception ex) {
+        logger.log(Level.WARNING,
+                   "Exception while attempting to invoke RequestEndListener " + listener.getClass()
+                   + ": ", ex);
+      }
+    }
   }
 }

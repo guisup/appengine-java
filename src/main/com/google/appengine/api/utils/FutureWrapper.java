@@ -21,7 +21,8 @@ public abstract class FutureWrapper<K, V> implements Future<V> {
   private final Future<K> parent;
 
   private boolean hasResult;
-  private V result;
+  private V successResult;
+  private ExecutionException exceptionResult;
 
   private final Lock lock = new ReentrantLock();
 
@@ -45,15 +46,30 @@ public abstract class FutureWrapper<K, V> implements Future<V> {
   }
 
   private V handleParentException(Throwable cause) throws Throwable {
-    result = absorbParentException(cause);
+    return setSuccessResult(absorbParentException(cause));
+  }
+
+  private V wrapAndCache(K data) throws Exception {
+    return setSuccessResult(wrap(data));
+  }
+
+  private V setSuccessResult(V result) {
+    successResult = result;
     hasResult = true;
     return result;
   }
 
-  private V wrapAndCache(K data) throws Exception {
-    result = wrap(data);
+  private ExecutionException setExceptionResult(Throwable ex) {
+    exceptionResult = new ExecutionException(ex);
     hasResult = true;
-    return result;
+    return exceptionResult;
+  }
+
+  private V getCachedResult() throws ExecutionException {
+    if (exceptionResult != null) {
+      throw exceptionResult;
+    }
+    return successResult;
   }
 
   @Override
@@ -61,7 +77,7 @@ public abstract class FutureWrapper<K, V> implements Future<V> {
     lock.lock();
     try {
       if (hasResult) {
-        return result;
+        return getCachedResult();
       }
 
       try {
@@ -75,7 +91,7 @@ public abstract class FutureWrapper<K, V> implements Future<V> {
       } catch (InterruptedException ex) {
         throw ex;
       } catch (Throwable ex) {
-        throw new ExecutionException(convertException(ex));
+        throw setExceptionResult(convertException(ex));
       }
     } finally {
       lock.unlock();
@@ -91,7 +107,7 @@ public abstract class FutureWrapper<K, V> implements Future<V> {
     }
     try {
       if (hasResult) {
-        return result;
+        return getCachedResult();
       }
       long remainingDeadline = TimeUnit.MILLISECONDS.convert(timeout, unit) -
           (System.currentTimeMillis() - tryLockStart);
@@ -108,7 +124,7 @@ public abstract class FutureWrapper<K, V> implements Future<V> {
       } catch (TimeoutException ex) {
         throw ex;
       } catch (Throwable ex) {
-        throw new ExecutionException(convertException(ex));
+        throw setExceptionResult(convertException(ex));
       }
     } finally {
       lock.unlock();

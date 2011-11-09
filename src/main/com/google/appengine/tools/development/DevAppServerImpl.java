@@ -28,12 +28,6 @@ import java.util.logging.Logger;
  * providing the path to the directory in which the application resides as the
  * only argument.
  *
- * Over time, the environment provided by this class should come to
- * resemble the environment provided to hosted applications in
- * production.  For example, stub applications of all of the API's
- * should be provided, and similar security restrictions should be
- * enforced.
- *
  */
 class DevAppServerImpl implements DevAppServer {
 
@@ -65,58 +59,38 @@ class DevAppServerImpl implements DevAppServer {
 
   /**
    * Constructs a development application server that runs the single
-   * application located in the given directory.  The application is
-   * configured by reading <appDir>/WEB-INF/web.xml and
-   * <appDir>/WEB-INF/appengine-web.xml.
-   */
-  public DevAppServerImpl(File appDir) {
-    this(appDir, DEFAULT_HTTP_ADDRESS, DEFAULT_HTTP_PORT);
-  }
-
-  /**
-   * Constructs a development application server that runs the single
-   * application located in the given directory.  The application is
-   * configured by reading <appDir>/WEB-INF/web.xml and
-   * <appDir>/WEB-INF/appengine-web.xml.
-   */
-  public DevAppServerImpl(File appDir, String address, int port) {
-    this(appDir, null, null, address, port, true);
-  }
-
-  /**
-   * Constructs a development application server that runs the single
    * application located in the given directory.  The application is configured
    * via <webXmlLocation> and the {@link AppEngineWebXml}
    * instance returned by the provided {@link AppEngineWebXmlReader}.
    *
    * @param appDir The location of the application to run.
    * @param webXmlLocation The location of a file whose format complies with
-   * http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd.  Can be null.
-   * @param appEngineWebXml The name of the app engine config file, relative to
-   * the WEB-INF directory.  If {@code null},
-   * {@link AppEngineWebXmlReader#DEFAULT_FILENAME} is used.
+   * http://java.sun.com/xml/ns/javaee/web-app_2_5.xsd.  If {@code null},
+   * defaults to <appDir>/WEB-INF/web.xml
+   * @param appEngineWebXmlLocation The name of the app engine config file.  If
+   * {@code null}, defaults to <appDir>/WEB-INF/appengine-web.xml
    * @param address The address on which to run
    * @param port The port on which to run
    * @param useCustomStreamHandler If {@code true}, install
-   * {@link StreamHandlerFactory}.  This is "normal" behavior
-   * for the dev app server.
+   * {@link StreamHandlerFactory}.  This is "normal" behavior for the dev app
+   * server.
+   * @param containerConfigProperties Additional properties used in the
+   * configuration of the specific container implementation.
    */
-  public DevAppServerImpl(File appDir, String webXmlLocation,
-      String appEngineWebXml, String address, int port, boolean useCustomStreamHandler) {
+  public DevAppServerImpl(File appDir, File webXmlLocation,
+      File appEngineWebXmlLocation, String address, int port, boolean useCustomStreamHandler,
+      Map<String, Object> containerConfigProperties) {
     String serverInfo = ContainerUtils.getServerInfo();
     if (useCustomStreamHandler) {
       StreamHandlerFactory.install();
     }
     mainContainer = ContainerUtils.loadContainer();
-    AppEngineWebXmlReader appEngineWebXmlReader = null;
-    if (appEngineWebXml != null) {
-      appEngineWebXmlReader = new AppEngineWebXmlReader(appDir.getAbsolutePath(), appEngineWebXml);
-    }
     environment = mainContainer.configure(
-        serverInfo, appDir, webXmlLocation, appEngineWebXmlReader, address, port);
-
+        serverInfo, appDir, webXmlLocation, appEngineWebXmlLocation, address, port,
+        containerConfigProperties);
     backendContainer = BackendServers.getInstance();
-    backendContainer.init(appDir, appEngineWebXml, address);
+    backendContainer.init(appDir, webXmlLocation, appEngineWebXmlLocation, address,
+        containerConfigProperties);
   }
 
   /**
